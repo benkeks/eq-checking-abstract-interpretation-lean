@@ -69,6 +69,12 @@ jobs:
           mkdir -p _site/docs
           cp -r docbuild/.lake/build/doc/. _site/docs
 
+      - name: Download current published paper PDF
+        run: |
+          curl --fail --location --silent --show-error \
+            https://benkeks.github.io/eq-checking-abstract-interpretation/index.pdf \
+            --output _site/process-equivalence-checking-as-abstract-interpretation.pdf
+
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
         with:
