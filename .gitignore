@@ -1,0 +1,14 @@
+*.tex
+*.pdf
+*.aux
+*.fdb_latexmk
+.jupyter_cache/
+.quarto/
+index_files/
+index.*
+!site/index.html
+/.quarto/
+**/*.quarto_ipynb
+.vscode/
+.lake/
+docbuild/
