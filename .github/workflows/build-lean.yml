@@ -33,7 +33,7 @@ jobs:
           if [ -f index.pdf ]; then
             cp index.pdf _site/index.pdf
           fi
-          cp site/index.html _site/index.html
+          cp -r site/* _site/
           touch _site/.nojekyll
 
       - name: Set up Lean
@@ -60,7 +60,6 @@ jobs:
           rev = "v4.29.1"
           EOF
           cp lean-toolchain docbuild/lean-toolchain
-          cp bibliography.bib docbuild/docs/references.bib
           cd docbuild
           MATHLIB_NO_CACHE_ON_UPDATE=1 lake update EqCheckingAbstractInterpretation
           MATHLIB_NO_CACHE_ON_UPDATE=1 lake update doc-gen4
