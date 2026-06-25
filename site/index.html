@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Process Equivalence Checking as Abstract Interpretation</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f6f1e8;
+      --panel: #fffaf2;
+      --ink: #1f2933;
+      --muted: #52606d;
+      --accent: #8a2e1c;
+      --border: #e6d5bd;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: "Iowan Old Style", "Palatino Linotype", "Book Antiqua", serif;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at top, rgba(217, 119, 6, 0.16), transparent 30%),
+        linear-gradient(180deg, #fbf7ef 0%, var(--bg) 100%);
+    }
+
+    main {
+      max-width: 880px;
+      margin: 0 auto;
+      padding: 64px 24px 80px;
+    }
+
+    h1 {
+      margin: 0 0 12px;
+      font-size: clamp(2.5rem, 6vw, 4.5rem);
+      line-height: 0.95;
+      letter-spacing: -0.04em;
+    }
+
+    p {
+      font-size: 1.1rem;
+      line-height: 1.7;
+      color: var(--muted);
+    }
+
+    .grid {
+      display: grid;
+      gap: 18px;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      margin-top: 36px;
+    }
+
+    .card {
+      display: block;
+      padding: 24px;
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      background: rgba(255, 250, 242, 0.9);
+      color: inherit;
+      text-decoration: none;
+      box-shadow: 0 18px 40px rgba(31, 41, 51, 0.08);
+    }
+
+    .card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 22px 48px rgba(31, 41, 51, 0.12);
+    }
+
+    .card strong {
+      display: block;
+      margin-bottom: 10px;
+      font-size: 1.25rem;
+      color: var(--accent);
+    }
+
+    .badge {
+      display: inline-block;
+      margin-bottom: 18px;
+      padding: 6px 10px;
+      border-radius: 999px;
+      background: rgba(138, 46, 28, 0.08);
+      color: var(--accent);
+      font-size: 0.85rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <span class="badge">Paper artifact</span>
+    <h1>Process Equivalence Checking as Abstract Interpretation</h1>
+    <p>
+      This note ventures to flesh out that <em>equivalence checking</em> constitutes a form of backward-complete <em>abstract interpretation</em> on pairs of processes.
+    </p>
+    <p>
+      This site publishes the current paper artifact together with generated API documentation for the Lean autoformalization.
+    </p>
+    <div class="grid">
+      <a class="card" href="index.pdf">
+        <strong>Paper PDF</strong>
+        Download the Quarto-rendered note as a PDF artifact.
+      </a>
+      <a class="card" href="https://benkeks.github.io/eq-checking-abstract-interpretation/docs/EqCheckingAbstractInterpretation.html">
+        <strong>Lean Theory Docs</strong>
+        Browse the published API documentation for the Lean development.
+      </a>
+    </div>
+  </main>
+</body>
+</html>
