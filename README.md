@@ -5,29 +5,26 @@ This project implements a Lean autoformalization of how [generalized equivalence
 ## Project Structure
 
 - **EqCheckingAbstractInterpretation/**
-  - **Trace/**: CCS trace semantics and trace relations.
-    - `Basic.lean`: Direct CCS formalization (syntax, environments, derivative relation, denotational trace set), plus trace difference, trace preorder, and trace equivalence.
-    - `AbstractTransformer.lean`: Abstract non-emptiness transformer `DTrSharp`, with `AbstractDiff` defined as its least fixpoint.
-    - `Correctness.lean`: Soundness/completeness proofs connecting marker presence and concrete non-empty trace difference; preorder/equivalence characterization theorems.
-    - `Examples.lean`: Small concrete CCS examples (preorder and non-equivalence).
-    - `CorrectnessExamples.lean`: Toy instantiations and restricted-fragment bridge examples.
-  - **Ready/**: Capability-threshold formalization for the unified section.
-    - `Observations.lean`: Concrete ready-observation syntax (`RSObs`) and induced capability classifier.
-    - `ConcreteTransformer.lean`: Concrete RS predecessor transformer (`DRS`) and least-fixpoint layer (`lfpDRS`, canonical abstract lfp view).
-    - `ConcreteDifference.lean`: Current concrete RS difference object and preorder-emptiness bridge, defined from `lfpDRS`.
-    - `Denotational.lean`: Independent denotational characterization of RS differences via finite certificates; equivalence to lfp (`rsDifferenceDenotational_eq_lfpDRS`).
-    - `Unified.lean`: Capability lattice (`T,S,F,RS`), capability abstraction/concretization interface, monotonicity condition for observation fragments, and threshold correctness theorems (`..._of_alpha`, `..._of_lfp`).
-    - `ConcreteObservations.lean`: Instantiation theorems for the concrete RS syntax, including an assumption-free canonical-lfp instance.
-  - **CFG/**: Contains definitions and functions related to control flow graphs.
-    - `Basic.lean`: Basic definitions for CFG.
-  - **AbstractInterpretation/**: Core definitions and functions for abstract interpretation.
-    - `Basic.lean`: Basic definitions for abstract interpretation.
-  - **Equivalence/**: Defines concepts and functions related to equivalence.
-    - `Basic.lean`: Basic definitions for equivalence.
+  - **CCS/**: Core CCS syntax and operational semantics.
+    - `Basic.lean`: Processes, environments, derivatives, and enabled-action predicates.
+  - **Trace/**: Trace semantics, concrete/abstract transformers, correctness, and running example.
+    - `Basic.lean`: Traces, denotational trace sets, trace difference, preorder, and equivalence.
+    - `ConcreteTransformer.lean`: Concrete predecessor transformer `DTr` and least fixpoint `lfpDTr`.
+    - `AbstractTransformer.lean`: Non-emptiness abstraction and abstract transformer `DTrSharp` with `AbstractDiff := lfpDTrSharp`.
+    - `Correctness.lean`: Soundness/completeness bridge between markers and concrete difference non-emptiness, plus preorder/equivalence characterizations.
+    - `RunningExample.lean`: Concrete CCS running example for trace-level results.
+  - **Ready/**: Ready-simulation differences and capability-threshold abstraction.
+    - `Basic.lean`: Generic capability lattice (`T,S,F,RS`), abstraction/concretization infrastructure, generic threshold theorems, and concrete RS observation syntax (`RSObs`) with capability classifier.
+    - `ConcreteTransformer.lean`: Concrete RS predecessor transformer `DRS` and least fixpoint `lfpDRS`.
+    - `AbstractTransformer.lean`: Exact abstract transformer `bestDRS` and abstract least-fixpoint objects (`lfpBestDRS`, canonical concrete-induced abstractions).
+    - `Correctness.lean`: RS instantiation/correctness theorems, including canonical-lfp threshold exactness and `lfpBestDRS` alignment.
+    - `ConcreteDifference.lean`: Concrete RS difference object `RSDifferenceToSet` and witness-preorder emptiness bridge.
+    - `Denotational.lean`: Independent denotational characterization via finite certificates and equivalence theorem `rsDifferenceDenotational_eq_lfpDRS`.
+    - `RunningExample.lean`: Concrete RS running example witnessing fragment-level failures.
 
 - **EqCheckingAbstractInterpretation.lean**: Aggregates components of the project.
 
-- **Main.lean**: Entry point of the application, executing the abstract interpretation and equivalence checking.
+- **Main.lean**: Minimal executable entry point (currently a placeholder message).
 
 - **lakefile.lean**: Configuration file for the Lake build system.
 
@@ -47,7 +44,7 @@ This project implements a Lean autoformalization of how [generalized equivalence
 
 ## Documentation
 
-GitHub Pages publishes the Lean API documentation at <https://benkeks.github.io/eq-checking-abstract-interpretation-lean/docs/EqCheckingAbstractInterpretation/> via a `doc-gen4` build in the GitHub Pages workflow.
+GitHub Pages publishes the Lean API documentation at <https://eq-checking-as-abstract-interpretation.equiv.io/> via a `doc-gen4` build in the GitHub Pages workflow.
 
 ## Current Formalization Scope
 
@@ -55,8 +52,9 @@ The formalization currently covers three layers.
 
 1. Trace semantics and trace equivalence.
   - `Trace/Basic.lean` defines CCS traces, trace difference, preorder, and equivalence.
+  - `Trace/ConcreteTransformer.lean` defines the concrete predecessor transformer `DTr`, its least fixpoint `lfpDTr`, and the concrete/lfp equivalence.
   - `Trace/AbstractTransformer.lean` defines the abstract marker system via `AbstractDiff := lfpDTrSharp`.
-  - `Trace/Correctness.lean` proves the marker/non-emptiness and preorder/equivalence correctness theorems.
+  - `Trace/Correctness.lean` proves marker/non-emptiness correctness and preorder/equivalence characterization theorems.
 
 2. Concrete ready-simulation differences.
   - `Ready/ConcreteTransformer.lean` defines the concrete predecessor transformer `DRS` and its least fixpoint `lfpDRS`.
@@ -64,14 +62,10 @@ The formalization currently covers three layers.
   - `Ready/Denotational.lean` gives an independent denotational characterization `rsDifferenceDenotational` and proves `rsDifferenceDenotational_eq_lfpDRS`.
 
 3. Unified capability-threshold abstraction.
-  - `Ready/Unified.lean` formalizes the capability lattice and the generic threshold theorems.
-  - `Ready/Observations.lean` and `Ready/ConcreteObservations.lean` instantiate that framework for the concrete RS observation syntax.
-  - The generic theorem is assumption-explicit; the canonical lfp-based concrete instance is assumption-free.
+  - `Ready/Basic.lean` formalizes the capability lattice and generic threshold theorems (`..._of_alpha`, `..._of_lfp`).
+  - `Ready/AbstractTransformer.lean` defines the exact abstract transformer (`bestDRS`) and abstract lfp constructions (`lfpBestDRS`, canonical concrete-induced abstractions).
+  - `Ready/Correctness.lean` proves concrete RS instantiation theorems, including assumption-free canonical-lfp and `lfpBestDRS` threshold exactness results.
 
 All of these modules are re-exported by `EqCheckingAbstractInterpretation.lean`.
 
-One remaining representational gap is intentional: `Ready/ConcreteObservations.lean` uses lists for conjunction branches and refusals, while the paper writes them set-theoretically. So order/duplication invariance is treated mathematically in the paper, but not quotiented in the Lean syntax.
-
-## Usage
-
-After building the project, you can modify the Lean files in the `EqCheckingAbstractInterpretation` directory to implement your own abstract interpretation logic or equivalence checking algorithms.
+One remaining representational gap is intentional: `Ready/Basic.lean` uses lists for conjunction branches and refusals in `RSObs`, while the paper writes these components set-theoretically. So order/duplication invariance is treated mathematically in the paper, but not quotiented in the Lean syntax.

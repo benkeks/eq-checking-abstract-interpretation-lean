@@ -1,4 +1,4 @@
-name: Build paper and Lean docs for GitHub Pages
+name: Build Lean docs for GitHub Pages
 
 on:
   push:
