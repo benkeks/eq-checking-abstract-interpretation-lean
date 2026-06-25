@@ -47,12 +47,12 @@ jobs:
           name = "docbuild"
           reservoir = false
           version = "0.1.0"
-          packagesDir = ".lake/packages"
+          packagesDir = "../.lake/packages"
           defaultTargets = ["EqCheckingAbstractInterpretation"]
 
           [[require]]
           name = "EqCheckingAbstractInterpretation"
-          path = "."
+          path = "../"
 
           [[require]]
           scope = "leanprover"
