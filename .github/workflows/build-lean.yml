@@ -38,11 +38,8 @@ jobs:
 
       - name: Set up Lean
         uses: leanprover/lean-action@v1
-        with:
-          lake-package-directory: eq-checking-abstract-interpretation
 
       - name: Build Lean docs
-        working-directory: eq-checking-abstract-interpretation
         run: |
           rm -rf docbuild
           mkdir -p docbuild/docs
@@ -50,12 +47,12 @@ jobs:
           name = "docbuild"
           reservoir = false
           version = "0.1.0"
-          packagesDir = "../.lake/packages"
+          packagesDir = ".lake/packages"
           defaultTargets = ["EqCheckingAbstractInterpretation"]
 
           [[require]]
           name = "EqCheckingAbstractInterpretation"
-          path = "../"
+          path = "."
 
           [[require]]
           scope = "leanprover"
@@ -63,14 +60,14 @@ jobs:
           rev = "v4.29.1"
           EOF
           cp lean-toolchain docbuild/lean-toolchain
-          cp ../bibliography.bib docbuild/docs/references.bib
+          cp bibliography.bib docbuild/docs/references.bib
           cd docbuild
           MATHLIB_NO_CACHE_ON_UPDATE=1 lake update EqCheckingAbstractInterpretation
           MATHLIB_NO_CACHE_ON_UPDATE=1 lake update doc-gen4
           DOCGEN_SRC=github lake build EqCheckingAbstractInterpretation:docs
           cd ..
-          mkdir -p ../_site/docs
-          cp -r docbuild/.lake/build/doc/. ../_site/docs
+          mkdir -p _site/docs
+          cp -r docbuild/.lake/build/doc/. _site/docs
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
