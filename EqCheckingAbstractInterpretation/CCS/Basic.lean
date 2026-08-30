@@ -9,6 +9,7 @@ inductive CCS (Action : Type u) (Name : Type v) where
   | choice : CCS Action Name → CCS Action Name → CCS Action Name
   | zero : CCS Action Name
   | var : Name → CCS Action Name
+  deriving DecidableEq, BEq
 
 /-- A recursive process environment maps each name to its defining CCS term. -/
 abbrev Env (Action : Type u) (Name : Type v) := Name → CCS Action Name

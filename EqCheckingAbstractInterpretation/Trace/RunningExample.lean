@@ -1,4 +1,6 @@
 import EqCheckingAbstractInterpretation.Trace.Correctness
+import EqCheckingAbstractInterpretation.Trace.FiniteEvaluator
+import EqCheckingAbstractInterpretation.Trace.FiniteEvaluatorCorrectness
 
 namespace EqCheckingAbstractInterpretation.Trace.RunningExample
 
@@ -27,13 +29,13 @@ Key results:
 inductive RunAct where
   | a
   | b
-  deriving DecidableEq
+  deriving DecidableEq, BEq
 
 /-- Process names: `PA` and `PB`. -/
 inductive RunName where
   | PA
   | PB
-  deriving DecidableEq
+  deriving DecidableEq, BEq
 
 abbrev RunProc := CCS RunAct RunName
 
@@ -50,7 +52,7 @@ def b0   : RunProc := .prefix .b .zero
 def PBb0 : RunProc := .choice (.var .PB) (.prefix .b .zero)
 
 -- ---------------------------------------------------------------------------
--- Derivative lemmas
+-- Manual analysis of the finite traces
 -- ---------------------------------------------------------------------------
 
 /-- `b.0` has no `a`-derivative. -/
@@ -98,18 +100,8 @@ theorem b0_le_PBb0 : TracePreorder runEnv b0 PBb0 := by
     | nil => exact TraceSem.cons (Deriv.choice_right Deriv.prefix) (TraceSem.nil _)
     | cons hDer2 _ => exact absurd hDer2 (by intro h; cases h)
 
-/-- Abstract trace difference is absent for `(b0, {PBb0})`.
-
-    `b0` is concrete-trace preordered below `PBb0` (every trace of `b0` is
-    a trace of `PBb0`), so the marker can never appear. -/
-theorem not_abstractDiff_b0_PBb0 :
-    ¬ AbstractDiff runEnv b0 {PBb0} := by
-  rw [markerPresence_iff_concreteDiffNonempty]
-  intro ⟨tr, htr, hNot⟩
-  exact hNot ⟨PBb0, rfl, b0_le_PBb0 tr htr⟩
-
 -- ---------------------------------------------------------------------------
--- 3. Negative: PA and PB are trace-equivalent (no abstract difference)
+-- Trace equivalence of PA and PB
 -- ---------------------------------------------------------------------------
 
 /-- Every trace of `PA` is also a trace of `PB`.
@@ -152,15 +144,72 @@ theorem PA_le_PB : TracePreorder runEnv PA PB := by
       · subst heq; exact absurd hDer (by intro h; cases h)
   exact (key PA tr htr).1 rfl |>.2
 
-/-- Abstract trace difference is absent for `(PA, {PB})`.
+-- ---------------------------------------------------------------------------
+-- Executable finite-state analysis and semantic interpretation
+-- ---------------------------------------------------------------------------
 
-    `PA` and `PB` have identical trace languages
-    (`{a^n | n ≥ 0} ∪ {a^n b | n ≥ 1}`), so `PA ≤_Tr PB` and no
-    abstract difference marker can be derived. -/
-theorem not_abstractDiff_PA_PB :
-    ¬ AbstractDiff runEnv PA {PB} := by
-  rw [markerPresence_iff_concreteDiffNonempty]
-  intro ⟨tr, htr, hNot⟩
-  exact hNot ⟨PB, rfl, PA_le_PB tr htr⟩
+open FiniteLTS
+
+/-- The finite transition table induced by `runEnv`. -/
+def runNext : RunProc → RunAct → List RunProc
+  | .var .PA, .a => [PA, b0]
+  | .var .PB, .a => [PBb0]
+  | .choice (.var .PB) (.prefix .b .zero), .a => [PBb0]
+  | .choice (.var .PB) (.prefix .b .zero), .b => [.zero]
+  | .prefix .b .zero, .b => [.zero]
+  | _, _ => []
+
+/-- The derivative-closed finite fragment induced by `runEnv`. -/
+def runLTS : CCS.FiniteLTS RunAct RunProc where
+  actions := [.a, .b]
+  states := [PA, PB, PBb0, b0, .zero]
+  next := runNext
+
+/-- Executable marker query for the running example. -/
+def runAbstractDiff (state : RunProc) (competitors : StateSet RunProc) : Bool :=
+  FiniteLTS.abstractDiff runLTS state competitors
+
+#eval runAbstractDiff PA [PB]
+#eval runAbstractDiff PBb0 [b0]
+
+theorem runAbstractDiff_PA_PB : runAbstractDiff PA [PB] = false := by native_decide
+theorem runAbstractDiff_PBb0_b0 : runAbstractDiff PBb0 [b0] = true := by native_decide
+theorem runAbstractDiff_b0_PBb0 : runAbstractDiff b0 [PBb0] = false := by native_decide
+
+/-- The executable result for `(b0, {PBb0})` agrees with `AbstractDiff`. -/
+theorem runAbstractDiff_b0_PBb0_correct :
+    runAbstractDiff b0 [PBb0] = true ↔ AbstractDiff runEnv b0 {PBb0} := by
+  constructor
+  · intro hComputed
+    rw [runAbstractDiff_b0_PBb0] at hComputed
+    cases hComputed
+  · intro hAbstract
+    exact (tracePreorder_iff_no_marker runEnv b0 PBb0).mp b0_le_PBb0 hAbstract |>.elim
+
+/-- The executable result for `(PA, {PB})` agrees with `AbstractDiff`. -/
+theorem runAbstractDiff_PA_PB_correct :
+    runAbstractDiff PA [PB] = true ↔ AbstractDiff runEnv PA {PB} := by
+  constructor
+  · intro hComputed
+    rw [runAbstractDiff_PA_PB] at hComputed
+    cases hComputed
+  · intro hAbstract
+    exact (tracePreorder_iff_no_marker runEnv PA PB).mp PA_le_PB hAbstract |>.elim
+
+/-- Abstract trace difference is absent for `(b0, {PBb0})`. -/
+theorem not_abstractDiff_b0_PBb0 : ¬ AbstractDiff runEnv b0 {PBb0} := by
+  intro hAbstract
+  have hComputed : runAbstractDiff b0 [PBb0] = true :=
+    runAbstractDiff_b0_PBb0_correct.mpr hAbstract
+  rw [runAbstractDiff_b0_PBb0] at hComputed
+  cases hComputed
+
+/-- Abstract trace difference is absent for `(PA, {PB})`. -/
+theorem not_abstractDiff_PA_PB : ¬ AbstractDiff runEnv PA {PB} := by
+  intro hAbstract
+  have hComputed : runAbstractDiff PA [PB] = true :=
+    runAbstractDiff_PA_PB_correct.mpr hAbstract
+  rw [runAbstractDiff_PA_PB] at hComputed
+  cases hComputed
 
 end EqCheckingAbstractInterpretation.Trace.RunningExample
