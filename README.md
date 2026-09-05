@@ -37,10 +37,16 @@ This repository contains a Lean formalization of how [generalized equivalence ch
    ```
    lake build
    ```
-3. To run the main application, execute:
+3. To decide whether one state is trace-preordered to another in a CSV transition system, execute:
    ```
-   lake run
+  lake exe Main <transitions.csv> <left-state-id> <right-state-id>
    ```
+  Each non-empty CSV line must contain `source-state-id,target-state-id,transition-label`.
+  State IDs are non-negative integers. For example:
+  ```
+  lake exe Main assets/peterson_mutex_5_15.csv 5 15
+  ```
+  The executable prints `tracePreordered(left-state-id, right-state-id) = true` or `false`.
 
 ## Documentation
 

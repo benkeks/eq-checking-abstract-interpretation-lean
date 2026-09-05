@@ -37,14 +37,42 @@ def marks (lts : CCS.FiniteLTS Action State) (marked : MarkerTable State)
       (lts.next state action).any (fun successor =>
         configMem (successor, shift lts competitors action) marked))
 
+private def successors (lts : CCS.FiniteLTS Action State) : Config State → MarkerTable State
+  | (state, competitors) =>
+    lts.actions.flatMap (fun action =>
+      (lts.next state action).map (fun successor =>
+        (successor, shift lts competitors action)))
+
+private partial def reachableConfigs (lts : CCS.FiniteLTS Action State)
+    (initial : Config State) : MarkerTable State :=
+  visit [] [initial]
+where
+  visit (seen work : MarkerTable State) : MarkerTable State :=
+    match work with
+    | [] => seen
+    | config :: remaining =>
+      if configMem config seen then
+        visit seen remaining
+      else
+        visit (config :: seen) (remaining ++ successors lts config)
+
 /-- Saturated Boolean form of `DTrSharp` over a finite transition system. -/
 def markerTable (lts : CCS.FiniteLTS Action State) : MarkerTable State :=
   saturate (configs lts) configMem (fun marked config => marks lts marked config.1 config.2)
 
+private def markerTableFrom (lts : CCS.FiniteLTS Action State)
+    (state : State) (competitors : StateSet State) : MarkerTable State :=
+  let relevant := reachableConfigs lts (state, competitors)
+  saturate relevant configMem (fun marked config => marks lts marked config.1 config.2)
+
 /-- Executable finite-state approximation of `AbstractDiff`. -/
 def abstractDiff (lts : CCS.FiniteLTS Action State) (state : State)
     (competitors : StateSet State) : Bool :=
-  configMem (state, competitors) (markerTable lts)
+  configMem (state, competitors) (markerTableFrom lts state competitors)
+
+def tracePreordered (lts : CCS.FiniteLTS Action State) (left_state : State)
+    (right_state : State) : Bool :=
+  ¬ abstractDiff lts left_state [right_state]
 
 end FiniteLTS
 end EqCheckingAbstractInterpretation.Trace
