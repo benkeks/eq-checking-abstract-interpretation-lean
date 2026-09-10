@@ -1,4 +1,5 @@
 import EqCheckingAbstractInterpretation.CCS.Basic
+import Mathlib.Data.Finset.Basic
 
 namespace EqCheckingAbstractInterpretation.CCS
 
@@ -26,13 +27,18 @@ structure Realizes
   actions_nodup : lts.actions.Nodup
   states_nodup : lts.states.Nodup
   action_complete : ∀ action, action ∈ lts.actions
-  state_complete : ∀ state, state ∈ lts.states
-  next_correct : ∀ state action target,
-    target ∈ lts.next state action ↔ Deriv env (decode state) action (decode target)
+  next_sound : ∀ state action target,
+    target ∈ lts.next state action → Deriv env (decode state) action (decode target)
+  next_closed : ∀ state action target,
+    state ∈ lts.states → target ∈ lts.next state action → target ∈ lts.states
+  next_complete : ∀ state action process,
+    state ∈ lts.states → Deriv env (decode state) action process →
+      ∃ target, target ∈ lts.states ∧ target ∈ lts.next state action ∧
+        decode target = process
 
 /-- Interpret a finite competitor list as a predicate on decoded CCS processes. -/
-def decodeSet {Name : Type w} (decode : State → CCS Action Name)
-    (competitors : List State) : ProcSet Action Name :=
+def decodeSet {Name : Type w} [DecidableEq State] (decode : State → CCS Action Name)
+  (competitors : Finset State) : ProcSet Action Name :=
   fun process => ∃ state, state ∈ competitors ∧ decode state = process
 
 end FiniteLTS

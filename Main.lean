@@ -40,13 +40,13 @@ private def parseTransitions (contents : String) : Except String (List Transitio
   parseLines 1 (contents.splitOn "\n")
 
 private def toLTS (transitions : List Transition) : FiniteLTS String Nat :=
-  let states := transitions.flatMap (fun transition => [transition.source, transition.target]) |>.eraseDups
-  let actions := transitions.map Transition.label |>.eraseDups
+  let states := (transitions.flatMap (fun transition => [transition.source, transition.target])).eraseDups
+  let actions := (transitions.map Transition.label).eraseDups
   { states
     actions
     next := fun state action =>
-      transitions.filter (fun transition => transition.source == state && transition.label == action)
-        |>.map Transition.target }
+      (transitions.filter (fun transition => transition.source == state && transition.label == action)
+        ).map Transition.target }
 
 private def usage : String :=
   "Usage: Main <transitions.csv> <left-state-id> <right-state-id>"

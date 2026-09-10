@@ -1,44 +1,42 @@
+import Mathlib.Data.Finset.Powerset
+
 namespace EqCheckingAbstractInterpretation.FiniteEvaluator
 
 universe u v
 
-/-- Finite sets represented as duplicate-free lists. -/
-abbrev Set (Element : Type u) := List Element
+/-- Mathematical finite sets, with extensional equality and library support. -/
+abbrev FSet (Element : Type u) := Finset Element
 
-/-- Boolean membership in a finite set. -/
-def mem [BEq Element] (element : Element) : Set Element → Bool
-  | [] => false
-  | candidate :: elements => element == candidate || mem element elements
+/-- Enumerate all Finset subsets of an ordered finite source list. -/
+def powerset [DecidableEq Element] (elements : List Element) : List (FSet Element) :=
+  elements.foldr (fun element sets => sets ++ sets.map (fun set => insert element set)) [{}]
 
-/-- Insert an element if it is not already present. -/
-def insert [BEq Element] (element : Element) (elements : Set Element) : Set Element :=
-  if mem element elements then elements else element :: elements
-
-/-- Union of finite sets. -/
-def union [BEq Element] (left right : Set Element) : Set Element :=
-  left.foldl (fun elements element => insert element elements) right
-
-def subset [BEq Element] (left right : Set Element) : Bool :=
-  left.all (fun element => mem element right)
-
-def setEq [BEq Element] (left right : Set Element) : Bool :=
-  subset left right && subset right left
-
-/-- Enumerate the powerset of a finite list. -/
-def powerset (elements : List Element) : List (Set Element) :=
+/-- Enumerate list-valued subsets when their ordering is part of the target syntax. -/
+def listPowerset (elements : List Element) : List (List Element) :=
   elements.foldr (fun element sets => sets ++ sets.map (fun set => element :: set)) [[]]
 
 /--
 Run an inflationary Boolean fixed-point computation over a finite configuration
 space. `contains` may implement an extensional notion of configuration equality.
 -/
+def saturateStep
+    (configs : List Config)
+    (contains : Config → List Config → Bool)
+    (marks : List Config → Config → Bool)
+    (marked : List Config) : List Config :=
+  marked ++ configs.filter (fun config => !contains config marked && marks marked config)
+
+def saturateN
+    (configs : List Config)
+    (contains : Config → List Config → Bool)
+    (marks : List Config → Config → Bool) : Nat → List Config
+  | 0 => []
+  | count + 1 => saturateStep configs contains marks (saturateN configs contains marks count)
+
 def saturate
     (configs : List Config)
     (contains : Config → List Config → Bool)
     (marks : List Config → Config → Bool) : List Config :=
-  (List.replicate configs.length ()).foldl
-    (fun marked _ =>
-      marked ++ configs.filter (fun config => !contains config marked && marks marked config))
-    []
+  saturateN configs contains marks configs.length
 
 end EqCheckingAbstractInterpretation.FiniteEvaluator

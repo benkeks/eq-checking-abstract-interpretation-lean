@@ -11,5 +11,4 @@ lean_lib EqCheckingAbstractInterpretation where
 lean_exe Main where
   root := `Main
 
--- Add any additional dependencies here
--- Example: dependencies := #[`SomeDependency]
+require mathlib from git "https://github.com/leanprover-community/mathlib4.git" @ "v4.29.1"

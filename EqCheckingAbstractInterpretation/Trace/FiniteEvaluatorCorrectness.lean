@@ -9,7 +9,8 @@ universe u v w
 
 namespace FiniteLTS
 
-variable {Action : Type u} {State : Type v} [BEq Action] [BEq State]
+variable {Action : Type u} {State : Type v}
+  [BEq Action] [BEq State] [DecidableEq State]
 
 /--
 Certificate that the saturated finite marker table equals the Trace semantic

@@ -142,7 +142,7 @@ theorem PA_le_PB : TracePreorder runEnv PA PB := by
         obtain heq := ih.2.2 rfl; subst heq
         exact TraceSem.cons (Deriv.choice_right Deriv.prefix) (TraceSem.nil _)
       · subst heq; exact absurd hDer (by intro h; cases h)
-  exact (key PA tr htr).1 rfl |>.2
+  exact ((key PA tr htr).1 rfl).2
 
 -- ---------------------------------------------------------------------------
 -- Executable finite-state analysis and semantic interpretation
@@ -169,38 +169,38 @@ def runLTS : CCS.FiniteLTS RunAct RunProc where
 def runAbstractDiff (state : RunProc) (competitors : StateSet RunProc) : Bool :=
   FiniteLTS.abstractDiff runLTS state competitors
 
-#eval runAbstractDiff PA [PB]
+#eval runAbstractDiff PA {PB}
 #eval FiniteLTS.tracePreordered runLTS PA PB
-#eval runAbstractDiff PBb0 [b0]
+#eval runAbstractDiff PBb0 {b0}
 
-theorem runAbstractDiff_PA_PB : runAbstractDiff PA [PB] = false := by native_decide
-theorem runAbstractDiff_PBb0_b0 : runAbstractDiff PBb0 [b0] = true := by native_decide
-theorem runAbstractDiff_b0_PBb0 : runAbstractDiff b0 [PBb0] = false := by native_decide
+theorem runAbstractDiff_PA_PB : runAbstractDiff PA {PB} = false := by native_decide
+theorem runAbstractDiff_PBb0_b0 : runAbstractDiff PBb0 {b0} = true := by native_decide
+theorem runAbstractDiff_b0_PBb0 : runAbstractDiff b0 {PBb0} = false := by native_decide
 
 /-- The executable result for `(b0, {PBb0})` agrees with `AbstractDiff`. -/
 theorem runAbstractDiff_b0_PBb0_correct :
-    runAbstractDiff b0 [PBb0] = true ↔ AbstractDiff runEnv b0 {PBb0} := by
+    runAbstractDiff b0 {PBb0} = true ↔ AbstractDiff runEnv b0 {PBb0} := by
   constructor
   · intro hComputed
     rw [runAbstractDiff_b0_PBb0] at hComputed
     cases hComputed
   · intro hAbstract
-    exact (tracePreorder_iff_no_marker runEnv b0 PBb0).mp b0_le_PBb0 hAbstract |>.elim
+    exact ((tracePreorder_iff_no_marker runEnv b0 PBb0).mp b0_le_PBb0 hAbstract).elim
 
 /-- The executable result for `(PA, {PB})` agrees with `AbstractDiff`. -/
 theorem runAbstractDiff_PA_PB_correct :
-    runAbstractDiff PA [PB] = true ↔ AbstractDiff runEnv PA {PB} := by
+    runAbstractDiff PA {PB} = true ↔ AbstractDiff runEnv PA {PB} := by
   constructor
   · intro hComputed
     rw [runAbstractDiff_PA_PB] at hComputed
     cases hComputed
   · intro hAbstract
-    exact (tracePreorder_iff_no_marker runEnv PA PB).mp PA_le_PB hAbstract |>.elim
+    exact ((tracePreorder_iff_no_marker runEnv PA PB).mp PA_le_PB hAbstract).elim
 
 /-- Abstract trace difference is absent for `(b0, {PBb0})`. -/
 theorem not_abstractDiff_b0_PBb0 : ¬ AbstractDiff runEnv b0 {PBb0} := by
   intro hAbstract
-  have hComputed : runAbstractDiff b0 [PBb0] = true :=
+  have hComputed : runAbstractDiff b0 {PBb0} = true :=
     runAbstractDiff_b0_PBb0_correct.mpr hAbstract
   rw [runAbstractDiff_b0_PBb0] at hComputed
   cases hComputed
@@ -208,7 +208,7 @@ theorem not_abstractDiff_b0_PBb0 : ¬ AbstractDiff runEnv b0 {PBb0} := by
 /-- Abstract trace difference is absent for `(PA, {PB})`. -/
 theorem not_abstractDiff_PA_PB : ¬ AbstractDiff runEnv PA {PB} := by
   intro hAbstract
-  have hComputed : runAbstractDiff PA [PB] = true :=
+  have hComputed : runAbstractDiff PA {PB} = true :=
     runAbstractDiff_PA_PB_correct.mpr hAbstract
   rw [runAbstractDiff_PA_PB] at hComputed
   cases hComputed
