@@ -33,6 +33,13 @@ def RSWitnessPreorder
     (p q : CCS Action Name) : Prop :=
   ¬ ∃ o : RSObs Action, lfpDRS env p {q} o
 
+/-- Witness preorder restricted to observations expressible at a capability threshold. -/
+def RSWitnessPreorderAt
+    (env : Env Action Name)
+    (N : Capability)
+    (p q : CCS Action Name) : Prop :=
+  ¬ notPreorderAt rsObsCap (lfpDRS env) N p {q}
+
 /-- Corollary: witness-preorder equals emptiness of concrete RS difference. -/
 theorem rsWitnessPreorder_iff_rsDiffEmpty
     (env : Env Action Name)

@@ -1,4 +1,6 @@
 import EqCheckingAbstractInterpretation.Ready.Correctness
+import EqCheckingAbstractInterpretation.Ready.ConcreteDifference
+import EqCheckingAbstractInterpretation.Ready.FiniteEvaluator
 
 namespace EqCheckingAbstractInterpretation.Ready.RunningExample
 
@@ -171,6 +173,46 @@ def obs_split_ab : RSObs RunAct := .node [(.a, .tt), (.b, .tt)] []
 
 /-- The simulation witness `⟨a⟩(⟨a⟩⊤ ∧ ⟨b⟩⊤)`. Capability: S. -/
 def obs_a_split_ab : RSObs RunAct := .node [(.a, obs_split_ab)] []
+
+-- ---------------------------------------------------------------------------
+-- Executable finite Ready analysis
+-- ---------------------------------------------------------------------------
+
+open FiniteLTS
+
+/-- The finite transition table induced by `runEnv`. -/
+def runNext : RunProc → RunAct → List RunProc
+  | .var .PA, .a => [PA, b0]
+  | .var .PB, .a => [PBb0]
+  | .choice (.var .PB) (.prefix .b .zero), .a => [PBb0]
+  | .choice (.var .PB) (.prefix .b .zero), .b => [.zero]
+  | .prefix .b .zero, .b => [.zero]
+  | _, _ => []
+
+/-- The derivative-closed finite fragment induced by `runEnv`. -/
+def runLTS : CCS.FiniteLTS RunAct RunProc where
+  actions := [.a, .b]
+  states := [PA, PB, PBb0, b0, .zero]
+  next := runNext
+
+/-- Compute the minimal capabilities derived by the finite Ready fixed point. -/
+def runReadyCapabilities (state : RunProc) (competitors : StateSet RunProc) : List Capability :=
+  readyCapabilities runLTS state competitors
+
+/-- Query whether the finite Ready fixed point refutes a capability preorder. -/
+def runReadyFailsAt (threshold : Capability) (state : RunProc)
+    (competitors : StateSet RunProc) : Bool :=
+  failsAt runLTS threshold state competitors
+
+#eval runReadyCapabilities PA {PB}
+#eval runReadyCapabilities PB {PA}
+#eval runReadyFailsAt .F PA {PB}
+#eval runReadyFailsAt .S PB {PA}
+
+theorem runReadyCapabilities_PA_PB : runReadyCapabilities PA {PB} = [.F] := by native_decide
+theorem runReadyCapabilities_PB_PA : runReadyCapabilities PB {PA} = [.S] := by native_decide
+theorem runReadyFailsAt_PA_PB_F : runReadyFailsAt .F PA {PB} = true := by native_decide
+theorem runReadyFailsAt_PB_PA_S : runReadyFailsAt .S PB {PA} = true := by native_decide
 
 -- ---------------------------------------------------------------------------
 -- Capability lemma
@@ -743,5 +785,99 @@ theorem lfpDRSAbsExactCanon_PB_PA_eq_singleton_S :
         cases hRSLeS
   · intro hc
     simpa [hc] using hS
+
+-- ---------------------------------------------------------------------------
+-- Interpretation of the executable Ready queries
+-- ---------------------------------------------------------------------------
+
+/-- The computed `PA` result exactly matches the semantic minimal capability set. -/
+theorem runReadyCapabilities_PA_PB_correct (capability : Capability) :
+    capability ∈ runReadyCapabilities PA {PB} ↔
+      lfpDRSAbsExactCanon runEnv PA {PB} capability := by
+  rw [runReadyCapabilities_PA_PB]
+  simpa using (lfpDRSAbsExactCanon_PA_PB_eq_singleton_F capability).symm
+
+/-- The computed `PB` result exactly matches the semantic minimal capability set. -/
+theorem runReadyCapabilities_PB_PA_correct (capability : Capability) :
+    capability ∈ runReadyCapabilities PB {PA} ↔
+      lfpDRSAbsExactCanon runEnv PB {PA} capability := by
+  rw [runReadyCapabilities_PB_PA]
+  simpa using (lfpDRSAbsExactCanon_PB_PA_eq_singleton_S capability).symm
+
+/-- The computed `F` witness result agrees with the semantic Ready abstraction. -/
+theorem runReadyFailsAt_PA_PB_F_correct :
+    runReadyFailsAt .F PA {PB} = true ↔
+      abstractFailsAt (lfpDRSAbsExactCanon runEnv) .F PA {PB} := by
+  constructor
+  · intro _
+    refine ⟨.F, ?_, capLe_refl .F⟩
+    exact (runReadyCapabilities_PA_PB_correct .F).mp (by simp [runReadyCapabilities_PA_PB])
+  · intro _
+    exact runReadyFailsAt_PA_PB_F
+
+/-- The computed `S` witness result agrees with the semantic Ready abstraction. -/
+theorem runReadyFailsAt_PB_PA_S_correct :
+    runReadyFailsAt .S PB {PA} = true ↔
+      abstractFailsAt (lfpDRSAbsExactCanon runEnv) .S PB {PA} := by
+  constructor
+  · intro _
+    refine ⟨.S, ?_, capLe_refl .S⟩
+    exact (runReadyCapabilities_PB_PA_correct .S).mp (by simp [runReadyCapabilities_PB_PA])
+  · intro _
+    exact runReadyFailsAt_PB_PA_S
+
+/-- `PA` is not below `PB` in the failure-ready witness preorder. -/
+theorem not_rsWitnessPreorder_PA_PB : ¬ RSWitnessPreorder runEnv PA PB := by
+  intro hPreorder
+  obtain ⟨observation, hMember, _⟩ :=
+    (abstractFailsAt_iff_notPreorderAt_rsObs_of_lfpExactCanon
+      runEnv .F PA {PB}).mp
+      (runReadyFailsAt_PA_PB_F_correct.mp runReadyFailsAt_PA_PB_F)
+  exact hPreorder ⟨observation, hMember⟩
+
+/-- `PB` is not below `PA` in the simulation-ready witness preorder. -/
+theorem not_rsWitnessPreorder_PB_PA : ¬ RSWitnessPreorder runEnv PB PA := by
+  intro hPreorder
+  obtain ⟨observation, hMember, _⟩ :=
+    (abstractFailsAt_iff_notPreorderAt_rsObs_of_lfpExactCanon
+      runEnv .S PB {PA}).mp
+      (runReadyFailsAt_PB_PA_S_correct.mp runReadyFailsAt_PB_PA_S)
+  exact hPreorder ⟨observation, hMember⟩
+
+/-- The executable `F` witness refutes `PA ≤_F PB`. -/
+theorem not_rsWitnessPreorderAt_F_PA_PB : ¬ RSWitnessPreorderAt runEnv .F PA PB := by
+  intro hPreorder
+  exact hPreorder
+    ((abstractFailsAt_iff_notPreorderAt_rsObs_of_lfpExactCanon
+      runEnv .F PA {PB}).mp
+      (runReadyFailsAt_PA_PB_F_correct.mp runReadyFailsAt_PA_PB_F))
+
+/-- `PA ≤_S PB`: the exact result has only the incomparable `F` capability. -/
+theorem rsWitnessPreorderAt_S_PA_PB : RSWitnessPreorderAt runEnv .S PA PB := by
+  intro hFailure
+  rcases (abstractFailsAt_iff_notPreorderAt_rsObs_of_lfpExactCanon
+    runEnv .S PA {PB}).mpr hFailure with ⟨capability, hCapability, hLe⟩
+  have hIsF : capability = .F :=
+    (lfpDRSAbsExactCanon_PA_PB_eq_singleton_F capability).mp hCapability
+  subst capability
+  cases hLe
+
+/-- `PB ≤_F PA`: the exact result has only the incomparable `S` capability. -/
+theorem rsWitnessPreorderAt_F_PB_PA : RSWitnessPreorderAt runEnv .F PB PA := by
+  intro hFailure
+  rcases (abstractFailsAt_iff_notPreorderAt_rsObs_of_lfpExactCanon
+    runEnv .F PB {PA}).mpr hFailure with ⟨capability, hCapability, hLe⟩
+  have hIsS : capability = .S :=
+    (lfpDRSAbsExactCanon_PB_PA_eq_singleton_S capability).mp hCapability
+  subst capability
+  cases hLe
+
+/-- The executable `S` witness refutes `PB ≤_S PA`. -/
+theorem not_rsWitnessPreorderAt_S_PB_PA : ¬ RSWitnessPreorderAt runEnv .S PB PA := by
+  intro hPreorder
+  exact hPreorder
+    ((abstractFailsAt_iff_notPreorderAt_rsObs_of_lfpExactCanon
+      runEnv .S PB {PA}).mp
+      (runReadyFailsAt_PB_PA_S_correct.mp runReadyFailsAt_PB_PA_S))
 
 end EqCheckingAbstractInterpretation.Ready.RunningExample
