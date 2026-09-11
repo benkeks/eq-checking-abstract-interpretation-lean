@@ -41,7 +41,7 @@ def tableLfp
     (tableStepHom domain marks hMarksMono).lfp
 
 /-- The Mathlib least marker table is a fixed point of the inflationary extension. -/
-theorem tableStep_tableLfp
+lemma tableStep_tableLfp
         {Config : Type u}
         (domain : Set Config)
         (marks : Set Config → Config → Prop)
@@ -52,7 +52,7 @@ theorem tableStep_tableLfp
     exact (tableStepHom domain marks hMarksMono).map_lfp
 
 /-- Any pre-fixed marker table contains the Mathlib least marker table. -/
-theorem tableLfp_subset_of_prefixed
+lemma tableLfp_subset_of_prefixed
         {Config : Type u}
         (domain : Set Config)
         (marks : Set Config → Config → Prop)
@@ -67,7 +67,7 @@ theorem tableLfp_subset_of_prefixed
 One executable saturation pass denotes the proof-facing `tableStep` whenever
 the Boolean membership and marking tests reflect their propositional forms.
 -/
-theorem saturateStep_toFinset
+lemma saturateStep_toFinset
         {Config : Type u} [DecidableEq Config]
         (configs marked : List Config)
         (contains : Config → List Config → Bool)
@@ -108,7 +108,7 @@ def tableIter
     | count + 1 => tableStep domain marks (tableIter domain marks count)
 
 /-- Every table approximation is contained in its finite configuration domain. -/
-theorem tableIter_subset_domain
+lemma tableIter_subset_domain
         {Config : Type u}
         (domain : Set Config)
         (marks : Set Config → Config → Prop)
@@ -123,7 +123,7 @@ theorem tableIter_subset_domain
         · exact hDomain
 
 /-- Table iteration is inflationary at every round. -/
-theorem tableIter_subset_succ
+lemma tableIter_subset_succ
         {Config : Type u}
         (domain : Set Config)
         (marks : Set Config → Config → Prop)
@@ -133,7 +133,7 @@ theorem tableIter_subset_succ
     exact Or.inl hConfig
 
 /-- A pre-fixed iteration remains unchanged in all later rounds. -/
-theorem tableIter_add_eq_of_prefixed
+lemma tableIter_add_eq_of_prefixed
         {Config : Type u}
         (domain : Set Config)
         (marks : Set Config → Config → Prop)
@@ -156,7 +156,7 @@ theorem tableIter_add_eq_of_prefixed
             _ = tableIter domain marks count := hFixed
 
 /-- A non-pre-fixed round strictly enlarges the marker table. -/
-theorem tableIter_ssubset_succ_of_not_prefixed
+lemma tableIter_ssubset_succ_of_not_prefixed
                 {Config : Type u}
                 (domain : Set Config)
                 (marks : Set Config → Config → Prop)
@@ -173,7 +173,7 @@ theorem tableIter_ssubset_succ_of_not_prefixed
         exact hFixed.subset
 
 /-- Inflationary iteration over a finite domain reaches a pre-fixed table by its cardinality. -/
-theorem tableIter_prefixed_at_card
+lemma tableIter_prefixed_at_card
                 {Config : Type u}
                 (domain : Finset Config)
                 (marks : Set Config → Config → Prop) :
@@ -222,7 +222,7 @@ theorem tableIter_prefixed_at_card
         omega
 
 /-- Once the finite-cardinality bound is reached, every later round is pre-fixed too. -/
-theorem tableIter_prefixed_of_card_le
+lemma tableIter_prefixed_of_card_le
                 {Config : Type u}
                 (domain : Finset Config)
                 (marks : Set Config → Config → Prop)
@@ -243,7 +243,7 @@ theorem tableIter_prefixed_of_card_le
         exact hBase
 
 /-- Executable saturation rounds denote the corresponding proof-facing table iteration. -/
-theorem saturateN_toFinset
+lemma saturateN_toFinset
         {Config : Type u} [DecidableEq Config]
         (configs : List Config)
         (contains : Config → List Config → Bool)
@@ -263,7 +263,7 @@ theorem saturateN_toFinset
                 contains marks marksSet hContains hMarks)
 
 /-- Every finite table approximation is contained in Mathlib's least fixed point. -/
-theorem tableIter_subset_tableLfp
+lemma tableIter_subset_tableLfp
         {Config : Type u}
         (domain : Set Config)
         (marks : Set Config → Config → Prop)
@@ -280,7 +280,7 @@ theorem tableIter_subset_tableLfp
         exact (tableStepHom domain marks hMarksMono).monotone ih
 
 /-- A pre-fixed finite approximation is exactly Mathlib's least marker table. -/
-theorem saturateN_eq_tableLfp_of_prefixed
+lemma saturateN_eq_tableLfp_of_prefixed
         {Config : Type u} [DecidableEq Config]
         (configs : List Config)
         (contains : Config → List Config → Bool)
@@ -323,7 +323,7 @@ theorem saturate_toFinset_eq_tableLfp
                     configs.toFinset_card_le)
 
 /-- Every Finset produced by the ordered powerset enumerator lies in its source list. -/
-theorem powerset_member_subset (elements : List Element) (subset : FSet Element)
+lemma powerset_member_subset (elements : List Element) (subset : FSet Element)
     (hSubset : subset ∈ powerset elements) :
     subset ⊆ elements.toFinset := by
   induction elements generalizing subset with
@@ -347,7 +347,7 @@ theorem powerset_member_subset (elements : List Element) (subset : FSet Element)
         · exact Or.inr (ih candidate hCandidate hElement)
 
 /-- The ordered powerset enumerator contains every subset of its source list. -/
-theorem subset_mem_powerset (elements : List Element) (subset : FSet Element)
+lemma subset_mem_powerset (elements : List Element) (subset : FSet Element)
         (hSubset : subset ⊆ elements.toFinset) :
         subset ∈ powerset elements := by
     induction elements generalizing subset with

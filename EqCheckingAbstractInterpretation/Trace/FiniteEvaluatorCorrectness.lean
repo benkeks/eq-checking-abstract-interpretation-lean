@@ -15,29 +15,21 @@ variable {Action : Type u} {State : Type v}
   [DecidableEq Action] [DecidableEq State]
 
 /-- Boolean marker-table membership reflects ordinary list membership. -/
-theorem configMem_iff (config : Config State) (marked : MarkerTable State) :
+lemma configMem_iff (config : Config State) (marked : MarkerTable State) :
     configMem config marked = true ↔ config ∈ marked := by
   induction marked with
   | nil => simp [configMem]
-  | cons entry marked ih =>
-      simp only [configMem, Bool.or_eq_true, decide_eq_true_eq, List.mem_cons, ih]
-      constructor
-      · rintro (hEqual | hMember)
-        · exact Or.inl (Prod.ext hEqual.1 hEqual.2)
-        · exact Or.inr hMember
-      · rintro (rfl | hMember)
-        · exact Or.inl ⟨rfl, rfl⟩
-        · exact Or.inr hMember
+  | cons entry marked ih => simp only [configMem, Bool.or_eq_true, decide_eq_true_eq, List.mem_cons, ih]; grind
 
 /-- Membership in a shifted competitor set comes from one competitor transition row. -/
-theorem mem_shift_iff (lts : CCS.FiniteLTS Action State) (competitors : StateSet State)
+lemma mem_shift_iff (lts : CCS.FiniteLTS Action State) (competitors : StateSet State)
     (action : Action) (target : State) :
     target ∈ shift lts competitors action ↔
       ∃ competitor ∈ competitors, target ∈ lts.next competitor action := by
   simp [shift]
 
 /-- The executable configuration enumeration is exactly the finite state powerset. -/
-theorem mem_configs_iff (lts : CCS.FiniteLTS Action State)
+lemma mem_configs_iff (lts : CCS.FiniteLTS Action State)
     (state : State) (competitors : StateSet State) :
     (state, competitors) ∈ configs lts ↔
       state ∈ lts.states ∧ competitors ⊆ lts.states.toFinset := by
@@ -56,26 +48,8 @@ theorem mem_configs_iff (lts : CCS.FiniteLTS Action State)
     rw [List.mem_map]
     exact ⟨competitors, subset_mem_powerset lts.states competitors hCompetitors, rfl⟩
 
-/-- Shifting listed competitors through a realized finite LTS remains in its state domain. -/
-theorem shift_subset_states
-    {Name : Type w}
-    (lts : CCS.FiniteLTS Action State)
-    (env : Env Action Name)
-    (decode : State → CCS Action Name)
-    (realizes : CCS.FiniteLTS.Realizes lts env decode)
-    (competitors : StateSet State)
-    (action : Action)
-    (hCompetitors : competitors ⊆ lts.states.toFinset) :
-    shift lts competitors action ⊆ lts.states.toFinset := by
-  intro target hTarget
-  rcases (mem_shift_iff lts competitors action target).mp hTarget with
-    ⟨competitor, hCompetitor, hNext⟩
-  have hCompetitorState : competitor ∈ lts.states := by
-    simpa using hCompetitors hCompetitor
-  simpa using realizes.next_closed competitor action target hCompetitorState hNext
-
 /-- Decoding an executable shift agrees with the semantic lifted derivative. -/
-theorem decodeSet_shift_iff
+lemma decodeSet_shift_iff
     {Name : Type w}
     (lts : CCS.FiniteLTS Action State)
     (env : Env Action Name)
@@ -102,7 +76,7 @@ theorem decodeSet_shift_iff
       ⟨competitor, hCompetitor, hTarget⟩, hTargetDecode⟩
 
 /-- One Boolean Trace marker step is sound for the semantic abstract transformer. -/
-theorem marks_sound
+lemma marks_sound
     {Name : Type w}
     (lts : CCS.FiniteLTS Action State)
     (env : Env Action Name)
@@ -144,22 +118,8 @@ theorem marks_sound
         (fun competitor hCompetitor => by simpa using hCompetitors hCompetitor)
     simpa only [hShift] using hSound successor (shift lts competitors action) hPrevious
 
-/-- Every configuration in an executable saturation round is drawn from the enumeration. -/
-theorem saturateN_subset_configs (lts : CCS.FiniteLTS Action State) (count : Nat) :
-    saturateN (configs lts) configMem (fun marked config => marks lts marked config.1 config.2) count
-      ⊆ configs lts := by
-  induction count with
-  | zero => simp [saturateN]
-  | succ count ih =>
-      intro config hConfig
-      simp only [saturateN, saturateStep, List.mem_append, List.mem_filter,
-        Bool.and_eq_true] at hConfig
-      rcases hConfig with hPrevious | hNew
-      · exact ih hPrevious
-      · exact hNew.1
-
 /-- Each finite saturation approximation is semantically sound. -/
-theorem saturateN_sound
+lemma saturateN_sound
     {Name : Type w}
     (lts : CCS.FiniteLTS Action State)
     (env : Env Action Name)
@@ -187,7 +147,7 @@ theorem saturateN_sound
             ih successor shifted ((configMem_iff (successor, shifted) _).mp hMember))
 
 /-- The executable Trace result implies the semantic abstract difference. -/
-theorem abstractDiff_sound
+lemma abstractDiff_sound
     {Name : Type w}
     (lts : CCS.FiniteLTS Action State)
     (env : Env Action Name)
@@ -208,7 +168,7 @@ def marksSet (lts : CCS.FiniteLTS Action State) (marked : Set (Config State))
     (successor, shift lts config.2 action) ∈ marked
 
 /-- The Boolean Trace marker rule reflects its proof-facing form. -/
-theorem marks_iff_marksSet (lts : CCS.FiniteLTS Action State)
+lemma marks_iff_marksSet (lts : CCS.FiniteLTS Action State)
     (marked : MarkerTable State) (state : State) (competitors : StateSet State) :
     marks lts marked state competitors = true ↔
       marksSet lts (marked.toFinset : Set (Config State)) (state, competitors) := by
@@ -224,7 +184,7 @@ theorem marks_iff_marksSet (lts : CCS.FiniteLTS Action State)
         (configMem_iff (successor, shift lts competitors action) marked).mpr (by simpa using hMarked)⟩
 
 /-- The proof-facing Trace marker relation is monotone in its table argument. -/
-theorem marksSet_mono (lts : CCS.FiniteLTS Action State) {left right : Set (Config State)}
+lemma marksSet_mono (lts : CCS.FiniteLTS Action State) {left right : Set (Config State)}
     (hSubset : left ⊆ right) (config : Config State) :
     marksSet lts left config → marksSet lts right config := by
   rintro (hEmpty | ⟨action, hAction, successor, hSuccessor, hMarked⟩)
@@ -244,7 +204,7 @@ theorem markerTable_toFinset_eq_tableLfp (lts : CCS.FiniteLTS Action State) :
     (fun hSubset config hMarks => marksSet_mono lts hSubset config hMarks)
 
 /-- A configuration satisfying the Trace marker rule belongs to the final marker table. -/
-theorem markerTable_closed (lts : CCS.FiniteLTS Action State)
+lemma markerTable_closed (lts : CCS.FiniteLTS Action State)
     (state : State) (competitors : StateSet State)
     (hConfig : (state, competitors) ∈ configs lts)
     (hMarked : marks lts (markerTable lts) state competitors = true) :
@@ -279,7 +239,7 @@ def markerPredicate
     configMem (state, competitors) (markerTable lts) = true
 
 /-- `markerPredicate` is a semantic pre-fixpoint of the Trace abstract transformer. -/
-theorem markerPredicate_prefixpoint
+lemma markerPredicate_prefixpoint
     {Name : Type w}
     (lts : CCS.FiniteLTS Action State)
     (env : Env Action Name)
@@ -301,8 +261,12 @@ theorem markerPredicate_prefixpoint
     simp [marks, hCompetitorsEmpty]
   · rcases realizes.next_complete state action successorProcess hState hDeriv with
       ⟨successor, hSuccessorState, hSuccessor, hDecodeSuccessor⟩
-    have hShifted : shift lts competitors action ⊆ lts.states.toFinset :=
-      shift_subset_states lts env decode realizes competitors action hCompetitors
+    have hShifted : shift lts competitors action ⊆ lts.states.toFinset := by
+      intro target hTarget
+      rcases (mem_shift_iff lts competitors action target).mp hTarget with
+        ⟨competitor, hCompetitor, hNext⟩
+      simpa using realizes.next_closed competitor action target
+        (by simpa using hCompetitors hCompetitor) hNext
     have hDecodeShift : CCS.FiniteLTS.decodeSet decode (shift lts competitors action) =
         DerivSetOf env (CCS.FiniteLTS.decodeSet decode competitors) action := by
       funext target
@@ -319,7 +283,7 @@ theorem markerPredicate_prefixpoint
       List.any_eq_true.mpr ⟨successor, hSuccessor, hPrevious⟩⟩)
 
 /-- The semantic Trace abstract difference is computed by the final marker table on represented inputs. -/
-theorem abstractDiff_complete
+lemma abstractDiff_complete
     {Name : Type w}
     (lts : CCS.FiniteLTS Action State)
     (env : Env Action Name)

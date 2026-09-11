@@ -89,6 +89,25 @@ def rsDifferenceDenotational
     DiffSysRS Action Name (RSObs Action) :=
   fun p Q o => ∃ cert : RSDenotationalCert o, isValidRSCert env p Q cert
 
+/-- Valid Ready certificates remain valid when the competitor predicate shrinks. -/
+theorem isValidRSCert_antitone_right
+    (env : Env Action Name)
+    (p : CCS Action Name)
+    {Q R : ProcSet Action Name}
+    (hRQ : ∀ process, R process → Q process)
+    {o : RSObs Action}
+    (cert : RSDenotationalCert o) :
+    isValidRSCert env p Q cert → isValidRSCert env p R cert := by
+  cases cert with
+  | tt_cert =>
+      intro h process hR
+      exact h process (hRQ process hR)
+  | @node_cert pos neg posCerts =>
+      rintro ⟨Qneg, Qpos, hPos, hNegP, hNegQ, hCover⟩
+      refine ⟨Qneg, Qpos, hPos, hNegP, hNegQ, ?_⟩
+      intro process hR
+      exact hCover process (hRQ process hR)
+
 /--
 Soundness: any valid certificate gives an element of the concrete lfp.
 

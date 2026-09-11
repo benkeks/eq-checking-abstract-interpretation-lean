@@ -76,35 +76,4 @@ theorem lfpDRS_prefixpoint
       rcases hPos i with ⟨p', hDer, hLfp⟩
       exact ⟨p', hDer, hLfp ρ hρ⟩
 
-
-/--
-`αcap(lfpDRS)` is itself a pre-fixpoint: one DRS step stays within `αcap(lfpDRS)`.
-This is the RS analogue of `alpha_lfpDTr_is_prefixpoint`.
--/
-theorem alpha_lfpDRS_is_prefixpoint
-    (env : Env Action Name)
-    (p : CCS Action Name)
-    (Q : ProcSet Action Name)
-    (c : Capability)
-    (h : alphaCapRaw rsObsCap (DRS env (lfpDRS env) p Q) c) :
-    alphaCapRaw rsObsCap (lfpDRS env p Q) c := by
-  rcases h with ⟨o, hDRS, hCap⟩
-  exact ⟨o, lfpDRS_prefixpoint env p Q o hDRS, hCap⟩
-
-/--
-`αcap(lfpDRS(p,Q))` is below every abstract pre-fixpoint of `DRS`.
-Combined with `alpha_lfpDRS_is_prefixpoint`, this yields `lfpDRSAbsCanon_spec`.
-This is the RS analogue of `alpha_lfpDTr_le_of_abstract_prefixpoint`.
--/
-theorem alpha_lfpDRS_le_of_abstract_prefixpoint
-    (env : Env Action Name)
-    (ρa : AbsSysRS Action Name)
-    (hρa : ∀ p' Q' c', alphaCapRaw rsObsCap (lfpDRS env p' Q') c' → ρa p' Q' c')
-    (p : CCS Action Name)
-    (Q : ProcSet Action Name)
-    (c : Capability)
-    (hAlpha : alphaCapRaw rsObsCap (lfpDRS env p Q) c) :
-    ρa p Q c :=
-  hρa p Q c hAlpha
-
 end EqCheckingAbstractInterpretation.Ready
