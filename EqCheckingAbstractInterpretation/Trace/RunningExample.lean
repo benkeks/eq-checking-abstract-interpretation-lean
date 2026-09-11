@@ -29,13 +29,13 @@ Key results:
 inductive RunAct where
   | a
   | b
-  deriving DecidableEq, BEq
+  deriving DecidableEq
 
 /-- Process names: `PA` and `PB`. -/
 inductive RunName where
   | PA
   | PB
-  deriving DecidableEq, BEq
+  deriving DecidableEq
 
 abbrev RunProc := CCS RunAct RunName
 

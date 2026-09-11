@@ -1,6 +1,7 @@
 import EqCheckingAbstractInterpretation.CCS.Basic
 import EqCheckingAbstractInterpretation.CCS.FiniteLTS
 import EqCheckingAbstractInterpretation.FiniteEvaluator.Basic
+import EqCheckingAbstractInterpretation.FiniteEvaluator.Correctness
 import EqCheckingAbstractInterpretation.Trace.Basic
 import EqCheckingAbstractInterpretation.Trace.ConcreteTransformer
 import EqCheckingAbstractInterpretation.Trace.AbstractTransformer

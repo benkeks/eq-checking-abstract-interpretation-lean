@@ -11,7 +11,7 @@ universe u v
 namespace FiniteLTS
 
 variable {Action : Type u} {State : Type v}
-  [BEq Action] [BEq State] [DecidableEq Action] [DecidableEq State]
+  [DecidableEq Action] [DecidableEq State]
 
 abbrev StateSet (State : Type v) := FSet State
 abbrev Config (State : Type v) := State × StateSet State

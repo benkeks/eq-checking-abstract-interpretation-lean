@@ -6,14 +6,14 @@ namespace EqCheckingAbstractInterpretation.CCS
 universe u v w
 
 /-- A finite, executable labelled transition system. -/
-structure FiniteLTS (Action : Type u) (State : Type v) [BEq Action] [BEq State] where
+structure FiniteLTS (Action : Type u) (State : Type v) [DecidableEq Action] [DecidableEq State] where
   actions : List Action
   states : List State
   next : State → Action → List State
 
 namespace FiniteLTS
 
-variable {Action : Type u} {State : Type v} [BEq Action] [BEq State]
+variable {Action : Type u} {State : Type v} [DecidableEq Action] [DecidableEq State]
 
 /--
 A finite transition system realizes a CCS environment when its transition table
