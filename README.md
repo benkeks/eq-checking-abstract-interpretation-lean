@@ -7,24 +7,32 @@ This repository contains a Lean formalization of how [generalized equivalence ch
 - **EqCheckingAbstractInterpretation/**
   - **CCS/**: Core CCS syntax and operational semantics.
     - `Basic.lean`: Processes, environments, derivatives, and enabled-action predicates.
+    - `FiniteLTS.lean`: Finite transition systems and their realization of CCS derivatives.
+  - **FiniteEvaluator/**: Shared finite reachability and saturation machinery.
+    - `Basic.lean`: Generic finite worklist evaluation.
+    - `Correctness.lean`: Correctness of finite saturation.
   - **Trace/**: Trace semantics, concrete/abstract transformers, correctness, and running example.
     - `Basic.lean`: Traces, denotational trace sets, trace difference, preorder, and equivalence.
     - `ConcreteTransformer.lean`: Concrete predecessor transformer `DTr` and least fixpoint `lfpDTr`.
     - `AbstractTransformer.lean`: Non-emptiness abstraction and abstract transformer `DTrSharp` with `AbstractDiff := lfpDTrSharp`.
     - `Correctness.lean`: Correctness bridge between abstract markers and concrete trace-difference non-emptiness, plus preorder/equivalence characterizations.
+    - `FiniteEvaluator.lean`: Executable trace-preorder query on finite transition systems.
+    - `FiniteEvaluatorCorrectness.lean`: Correspondence between finite trace evaluation and CCS trace semantics for realized systems.
     - `RunningExample.lean`: Concrete CCS running example for trace-level results.
   - **Ready/**: Ready-simulation differences and capability-threshold abstraction.
     - `Basic.lean`: Capability lattice (`T,S,F,RS`), abstraction/concretization interface, generic threshold theorems, and concrete RS observation syntax (`RSObs`) with its capability classifier.
     - `ConcreteTransformer.lean`: Concrete RS predecessor transformer `DRS` and least fixpoint `lfpDRS`.
     - `AbstractTransformer.lean`: Exact abstract transformer `bestDRS` and abstract least-fixpoint objects (`lfpBestDRS`, canonical concrete-induced abstractions).
     - `Correctness.lean`: RS instantiation/correctness theorems, including canonical-lfp threshold exactness and `lfpBestDRS` alignment.
+    - `FiniteEvaluator.lean`: Query-local finite capability saturation and threshold queries.
+    - `FiniteEvaluatorCorrectness.lean`: Exact evaluator and threshold correctness for realized finite LTSs.
     - `ConcreteDifference.lean`: Concrete RS difference object `RSDifferenceToSet` and witness-preorder emptiness bridge.
     - `Denotational.lean`: Independent denotational characterization via finite certificates and equivalence theorem `rsDifferenceDenotational_eq_lfpDRS`.
     - `RunningExample.lean`: Concrete RS running example witnessing fragment-level failures.
 
 - **EqCheckingAbstractInterpretation.lean**: Aggregates components of the project.
 
-- **Main.lean**: Minimal executable entry point (currently a placeholder message).
+- **Main.lean**: CSV-driven finite-LTS trace-preorder executable.
 
 - **lakefile.lean**: Configuration file for the Lake build system.
 
@@ -54,7 +62,7 @@ The GitHub Pages workflow builds Lean API documentation with `doc-gen4` and publ
 
 ## Current Formalization Scope
 
-The formalization currently covers three layers.
+The formalization currently covers four layers.
 
 1. Trace semantics and trace equivalence.
   - `Trace/Basic.lean` defines traces, trace difference, preorder, and equivalence.
@@ -71,6 +79,13 @@ The formalization currently covers three layers.
   - `Ready/Basic.lean` formalizes the capability lattice and generic threshold theorems (`..._of_alpha`, `..._of_lfp`).
   - `Ready/AbstractTransformer.lean` defines the exact abstract transformer (`bestDRS`) and abstract lfp constructions (`lfpBestDRS`, `lfpDRSAbsCanon`, `lfpDRSAbsExactCanon`).
   - `Ready/Correctness.lean` proves RS instantiation theorems, including canonical-lfp threshold exactness and `lfpBestDRS` equivalence results.
+
+4. Executable finite evaluation and correctness.
+  - `FiniteEvaluator/Basic.lean` and `FiniteEvaluator/Correctness.lean` provide shared finite saturation and its proof.
+  - `CCS/FiniteLTS.lean` defines the realization conditions relating finite transition tables to CCS derivatives.
+  - `Trace/FiniteEvaluator.lean` and `Trace/FiniteEvaluatorCorrectness.lean` implement trace queries and connect them to CCS trace semantics for realized systems.
+  - `Ready/FiniteEvaluator.lean` and `Ready/FiniteEvaluatorCorrectness.lean` implement capability and threshold queries and prove their exact correspondence to `lfpDRSAbsExactCanon` and `abstractFailsAt` for realized systems.
+  - `Ready/RunningExample.lean` proves realization of its finite table and applies the generic Ready correctness theorems to its computed results.
 
 All of these modules are re-exported by `EqCheckingAbstractInterpretation.lean`.
 
