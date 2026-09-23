@@ -1,6 +1,6 @@
 import EqCheckingAbstractInterpretation.Ready.Correctness
 import EqCheckingAbstractInterpretation.Ready.ConcreteDifference
-import EqCheckingAbstractInterpretation.Ready.FiniteEvaluator
+import EqCheckingAbstractInterpretation.Ready.FiniteEvaluatorCorrectness
 
 namespace EqCheckingAbstractInterpretation.Ready.RunningExample
 
@@ -194,6 +194,41 @@ def runLTS : CCS.FiniteLTS RunAct RunProc where
   actions := [.a, .b]
   states := [PA, PB, PBb0, b0, .zero]
   next := runNext
+
+/-- The executable table enumerates precisely the derivatives of its listed CCS states. -/
+theorem runLTS_realizes : CCS.FiniteLTS.Realizes runLTS runEnv id := by
+  constructor
+  · decide
+  · decide
+  · intro action
+    cases action <;> simp [runLTS]
+  · intro source action target hNext
+    change target ∈ runNext source action at hNext
+    unfold runNext at hNext
+    split at hNext <;> simp only [List.mem_cons, List.mem_nil_iff, or_false] at hNext
+    all_goals
+      rcases hNext with rfl | rfl
+      all_goals first | exact PA_a_PA | exact PA_a_b0 | exact PB_a_PBb0 |
+        exact PBb0_a_PBb0 | exact PBb0_b_zero | exact Deriv.prefix
+  · intro source action target hSource hNext
+    simp only [runLTS, List.mem_cons, List.mem_nil_iff, or_false] at hSource ⊢
+    rcases hSource with rfl | rfl | rfl | rfl | rfl <;>
+      cases action <;> simp [runLTS, runNext, PA, PB, PBb0, b0] at hNext ⊢
+    all_goals aesop
+  · intro source action process hSource hDeriv
+    simp only [runLTS, List.mem_cons, List.mem_nil_iff, or_false] at hSource
+    rcases hSource with rfl | rfl | rfl | rfl | rfl
+    · rcases PA_deriv_cases hDeriv with ⟨rfl, rfl | rfl⟩ <;>
+        refine ⟨_, by simp [runLTS, PA, PB, PBb0, b0],
+          by simp [runLTS, runNext, PA, b0], rfl⟩
+    · rcases PB_deriv_cases hDeriv with ⟨rfl, rfl⟩
+      exact ⟨PBb0, by simp [runLTS], by simp [runLTS, runNext, PB], rfl⟩
+    · rcases PBb0_deriv_cases hDeriv with ⟨rfl, rfl⟩ | ⟨rfl, rfl⟩
+      · exact ⟨PBb0, by simp [runLTS], by simp [runLTS, runNext, PBb0], rfl⟩
+      · exact ⟨.zero, by simp [runLTS], by simp [runLTS, runNext, PBb0], rfl⟩
+    · rcases b0_deriv_cases hDeriv with ⟨rfl, rfl⟩
+      exact ⟨.zero, by simp [runLTS], by simp [runLTS, runNext, b0], rfl⟩
+    · exact (zero_no_deriv action process hDeriv).elim
 
 /-- Compute the minimal capabilities derived by the finite Ready fixed point. -/
 def runReadyCapabilities (state : RunProc) (competitors : StateSet RunProc) : List Capability :=
@@ -790,41 +825,57 @@ theorem lfpDRSAbsExactCanon_PB_PA_eq_singleton_S :
 -- Interpretation of the executable Ready queries
 -- ---------------------------------------------------------------------------
 
+private theorem decodeSet_singleton (process : RunProc) :
+    CCS.FiniteLTS.decodeSet id ({process} : StateSet RunProc) =
+      ({process} : ProcSet RunAct RunName) := by
+  funext target
+  simp [CCS.FiniteLTS.decodeSet, Finset.mem_singleton, eq_comm]
+  change process = target ↔ target = process
+  exact eq_comm
+
 /-- The computed `PA` result exactly matches the semantic minimal capability set. -/
 theorem runReadyCapabilities_PA_PB_correct (capability : Capability) :
     capability ∈ runReadyCapabilities PA {PB} ↔
       lfpDRSAbsExactCanon runEnv PA {PB} capability := by
-  rw [runReadyCapabilities_PA_PB]
-  simpa using (lfpDRSAbsExactCanon_PA_PB_eq_singleton_F capability).symm
+  simpa [runReadyCapabilities, decodeSet_singleton] using
+    (readyCapabilities_correct runLTS runEnv id runLTS_realizes PA {PB} capability
+      (by simp [runLTS]) (by
+        intro competitor hCompetitor
+        rcases Finset.mem_singleton.mp hCompetitor with rfl
+        simp [runLTS, PA, PB, PBb0, b0]))
 
 /-- The computed `PB` result exactly matches the semantic minimal capability set. -/
 theorem runReadyCapabilities_PB_PA_correct (capability : Capability) :
     capability ∈ runReadyCapabilities PB {PA} ↔
       lfpDRSAbsExactCanon runEnv PB {PA} capability := by
-  rw [runReadyCapabilities_PB_PA]
-  simpa using (lfpDRSAbsExactCanon_PB_PA_eq_singleton_S capability).symm
+  simpa [runReadyCapabilities, decodeSet_singleton] using
+    (readyCapabilities_correct runLTS runEnv id runLTS_realizes PB {PA} capability
+      (by simp [runLTS]) (by
+        intro competitor hCompetitor
+        rcases Finset.mem_singleton.mp hCompetitor with rfl
+        simp [runLTS, PA, PB, PBb0, b0]))
 
 /-- The computed `F` witness result agrees with the semantic Ready abstraction. -/
 theorem runReadyFailsAt_PA_PB_F_correct :
     runReadyFailsAt .F PA {PB} = true ↔
       abstractFailsAt (lfpDRSAbsExactCanon runEnv) .F PA {PB} := by
-  constructor
-  · intro _
-    refine ⟨.F, ?_, capLe_refl .F⟩
-    exact (runReadyCapabilities_PA_PB_correct .F).mp (by simp [runReadyCapabilities_PA_PB])
-  · intro _
-    exact runReadyFailsAt_PA_PB_F
+  simpa [runReadyFailsAt, decodeSet_singleton] using
+    (failsAt_correct runLTS runEnv id runLTS_realizes .F PA {PB}
+      (by simp [runLTS]) (by
+        intro competitor hCompetitor
+        rcases Finset.mem_singleton.mp hCompetitor with rfl
+        simp [runLTS, PA, PB, PBb0, b0]))
 
 /-- The computed `S` witness result agrees with the semantic Ready abstraction. -/
 theorem runReadyFailsAt_PB_PA_S_correct :
     runReadyFailsAt .S PB {PA} = true ↔
       abstractFailsAt (lfpDRSAbsExactCanon runEnv) .S PB {PA} := by
-  constructor
-  · intro _
-    refine ⟨.S, ?_, capLe_refl .S⟩
-    exact (runReadyCapabilities_PB_PA_correct .S).mp (by simp [runReadyCapabilities_PB_PA])
-  · intro _
-    exact runReadyFailsAt_PB_PA_S
+  simpa [runReadyFailsAt, decodeSet_singleton] using
+    (failsAt_correct runLTS runEnv id runLTS_realizes .S PB {PA}
+      (by simp [runLTS]) (by
+        intro competitor hCompetitor
+        rcases Finset.mem_singleton.mp hCompetitor with rfl
+        simp [runLTS, PA, PB, PBb0, b0]))
 
 /-- `PA` is not below `PB` in the failure-ready witness preorder. -/
 theorem not_rsWitnessPreorder_PA_PB : ¬ RSWitnessPreorder runEnv PA PB := by

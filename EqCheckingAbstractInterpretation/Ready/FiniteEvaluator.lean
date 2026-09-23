@@ -117,6 +117,14 @@ def assignmentBranches : List State → Assignment Action → List (Branch Actio
     branchInsert slot action capability competitor (assignmentBranches competitors assignments)
   | _, _ => []
 
+/-- Competitors assigned to the negative side of a Ready partition. -/
+def negativeCompetitors : List State → Assignment Action → List State
+  | competitor :: competitors, none :: assignments =>
+    competitor :: negativeCompetitors competitors assignments
+  | _ :: competitors, some _ :: assignments =>
+    negativeCompetitors competitors assignments
+  | _, _ => []
+
 def branchCapabilities : List (Branch Action State) → Capability
   | [] => .T
   | branch :: branches => capJoin branch.capability (branchCapabilities branches)
@@ -181,11 +189,17 @@ def expandConfigs (lts : CCS.FiniteLTS Action State) (configs : List (ReadyConfi
     List (ReadyConfig State) :=
   configs.foldl (fun closure config => configUnion (configSuccessors lts config) closure) configs
 
+/-- Repeatedly close a query configuration under one Ready successor-expansion round. -/
+def queryConfigsN (lts : CCS.FiniteLTS Action State) (state : State)
+    (competitors : StateSet State) : Nat → List (ReadyConfig State)
+  | 0 => [(state, competitors)]
+  | count + 1 => expandConfigs lts (queryConfigsN lts state competitors count)
+
 /-- Derivative-closed finite domain needed to evaluate one process-versus-set query. -/
 def queryConfigs (lts : CCS.FiniteLTS Action State) (state : State)
     (competitors : StateSet State) : List (ReadyConfig State) :=
   let bound := lts.states.length * 2 ^ lts.states.length
-  (List.replicate bound ()).foldl (fun configs _ => expandConfigs lts configs) [(state, competitors)]
+  queryConfigsN lts state competitors bound
 
 def capabilityConfigs (configs : List (ReadyConfig State)) : List (CapabilityConfig State) :=
   configs.flatMap (fun config => capabilities.map (fun capability => (config, capability)))
