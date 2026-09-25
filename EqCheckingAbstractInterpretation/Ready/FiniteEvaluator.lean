@@ -195,21 +195,37 @@ def queryConfigsN (lts : CCS.FiniteLTS Action State) (state : State)
   | 0 => [(state, competitors)]
   | count + 1 => expandConfigs lts (queryConfigsN lts state competitors count)
 
+/-- Stop expanding the query domain when one round discovers no new configurations. -/
+def queryConfigsUntil (lts : CCS.FiniteLTS Action State) :
+    Nat → List (ReadyConfig State) → List (ReadyConfig State)
+  | 0, configs => configs
+  | fuel + 1, configs =>
+    let expanded := expandConfigs lts configs
+    if expanded = configs then configs else queryConfigsUntil lts fuel expanded
+
 /-- Derivative-closed finite domain needed to evaluate one process-versus-set query. -/
 def queryConfigs (lts : CCS.FiniteLTS Action State) (state : State)
     (competitors : StateSet State) : List (ReadyConfig State) :=
   let bound := lts.states.length * 2 ^ lts.states.length
-  queryConfigsN lts state competitors bound
+  queryConfigsUntil lts bound [(state, competitors)]
 
 def capabilityConfigs (configs : List (ReadyConfig State)) : List (CapabilityConfig State) :=
   configs.flatMap (fun config => capabilities.map (fun capability => (config, capability)))
+
+def capabilityTableUntil (lts : CCS.FiniteLTS Action State)
+    (configs : List (CapabilityConfig State)) : Nat → CapabilityTable State → CapabilityTable State
+  | 0, marked => marked
+  | fuel + 1, marked =>
+    let expanded := saturateStep configs capabilityConfigMem
+      (fun marked config => marks lts marked config.1 config.2) marked
+    if expanded = marked then marked else capabilityTableUntil lts configs fuel expanded
 
 /- Saturate the symbolic Ready transformer over the query's finite domain. -/
 def capabilityTable (lts : CCS.FiniteLTS Action State) (state : State)
     (competitors : StateSet State) : CapabilityTable State :=
   let configs := queryConfigs lts state competitors
-  saturate (capabilityConfigs configs) capabilityConfigMem
-    (fun marked config => marks lts marked config.1 config.2)
+  let domain := capabilityConfigs configs
+  capabilityTableUntil lts domain domain.length []
 
 def minimalCapabilities (marked : CapabilityTable State) (config : ReadyConfig State) : List Capability :=
   capabilities.filter (fun capability =>

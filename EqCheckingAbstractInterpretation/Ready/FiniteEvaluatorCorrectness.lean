@@ -1012,13 +1012,61 @@ lemma mem_queryConfigsN
       exact mem_expandConfigs_of_mem lts (queryConfigsN lts state competitors count)
         (state, competitors) ih
 
+private lemma queryConfigsN_stable (lts : CCS.FiniteLTS Action State)
+    (state : State) (competitors : StateSet State) (count : Nat)
+    (hStable : expandConfigs lts (queryConfigsN lts state competitors count) =
+      queryConfigsN lts state competitors count) (extra : Nat) :
+    queryConfigsN lts state competitors (count + extra) =
+      queryConfigsN lts state competitors count := by
+  induction extra with
+  | zero => rfl
+  | succ extra ih =>
+    rw [Nat.add_succ, queryConfigsN, ih, hStable]
+
+private lemma queryConfigsUntil_eq_queryConfigsN (lts : CCS.FiniteLTS Action State)
+    (state : State) (competitors : StateSet State) (fuel : Nat) :
+    ∀ (count : Nat) (seen : List (ReadyConfig State)),
+      seen = queryConfigsN lts state competitors count →
+      queryConfigsUntil lts fuel seen = queryConfigsN lts state competitors (count + fuel) := by
+  induction fuel with
+  | zero =>
+    intro count seen hSeen
+    simpa [queryConfigsUntil] using hSeen
+  | succ fuel ih =>
+    intro count seen hSeen
+    rw [queryConfigsUntil]
+    split_ifs with hStable
+    · have hFixed : expandConfigs lts (queryConfigsN lts state competitors count) =
+          queryConfigsN lts state competitors count := by simpa [hSeen] using hStable
+      rw [hSeen]
+      exact (queryConfigsN_stable lts state competitors count hFixed (fuel + 1)).symm
+    · have hExpanded : expandConfigs lts seen =
+          queryConfigsN lts state competitors (count + 1) := by
+        rw [hSeen, queryConfigsN]
+      simpa only [Nat.add_succ, Nat.succ_add] using
+        (ih (count + 1) (expandConfigs lts seen) hExpanded)
+
+lemma queryConfigs_eq_queryConfigsN (lts : CCS.FiniteLTS Action State)
+    (state : State) (competitors : StateSet State) :
+    queryConfigs lts state competitors =
+      queryConfigsN lts state competitors (lts.states.length * 2 ^ lts.states.length) := by
+  unfold queryConfigs
+  simpa only [queryConfigsN, Nat.zero_add] using
+    (queryConfigsUntil_eq_queryConfigsN lts state competitors _ 0 [(state, competitors)] rfl)
+
+private def idleQueryLTS : CCS.FiniteLTS Nat Nat :=
+  { states := List.range 19, actions := [0], next := fun _ _ => [] }
+
+example : (queryConfigs idleQueryLTS 0 {1}).length = 1 := by native_decide
+example : readyCapabilities idleQueryLTS 0 {1} = [] := by native_decide
+
 /-- The bounded query domain always contains the queried configuration. -/
 lemma mem_queryConfigs
     (lts : CCS.FiniteLTS Action State)
     (state : State)
     (competitors : StateSet State) :
     (state, competitors) ∈ queryConfigs lts state competitors := by
-  unfold queryConfigs
+  rw [queryConfigs_eq_queryConfigsN]
   exact mem_queryConfigsN lts state competitors _
 
 /-- Folding expansion preserves containment in the represented configuration universe. -/
@@ -1114,7 +1162,7 @@ lemma queryConfigs_subset_configUniverse
     (hState : state ∈ lts.states)
     (hCompetitors : competitors ⊆ lts.states.toFinset) :
     ∀ config, config ∈ queryConfigs lts state competitors → config ∈ configUniverse lts := by
-  unfold queryConfigs
+  rw [queryConfigs_eq_queryConfigsN]
   exact queryConfigsN_subset_configUniverse lts env decode realizes state competitors
     hState hCompetitors _
 
@@ -1338,7 +1386,7 @@ lemma queryConfigs_closed
       ((queryConfigs lts state competitors).toFinset : Set (ReadyConfig State)) =
         tableIter (configUniverse lts).toFinset
           (queryConfigStepSet lts (state, competitors)) (bound + 1) := by
-    unfold queryConfigs
+    rw [queryConfigs_eq_queryConfigsN]
     exact queryConfigsN_toFinset_eq_tableIter lts env decode realizes state competitors
       hState hCompetitors bound
   have hConfigUniverse : config ∈ configUniverse lts :=
@@ -1611,6 +1659,68 @@ def capabilityTableLfp
     (fun marked entry => marksSet lts marked entry.1 entry.2)
     (fun hSubset config hMarks => marksSet_mono lts hSubset config.1 config.2 hMarks)
 
+private lemma capabilitySaturateN_stable (lts : CCS.FiniteLTS Action State)
+    (configs : List (CapabilityConfig State)) (count : Nat)
+    (hStable : saturateStep configs capabilityConfigMem
+        (fun marked config => marks lts marked config.1 config.2)
+        (saturateN configs capabilityConfigMem
+          (fun marked config => marks lts marked config.1 config.2) count) =
+      saturateN configs capabilityConfigMem
+        (fun marked config => marks lts marked config.1 config.2) count) (extra : Nat) :
+    saturateN configs capabilityConfigMem
+        (fun marked config => marks lts marked config.1 config.2) (count + extra) =
+      saturateN configs capabilityConfigMem
+        (fun marked config => marks lts marked config.1 config.2) count := by
+  induction extra with
+  | zero => rfl
+  | succ extra ih =>
+    rw [Nat.add_succ, saturateN, ih, hStable]
+
+private lemma capabilityTableUntil_eq_saturateN (lts : CCS.FiniteLTS Action State)
+    (configs : List (CapabilityConfig State)) (fuel : Nat) :
+    ∀ (count : Nat) (marked : CapabilityTable State),
+      marked = saturateN configs capabilityConfigMem
+        (fun marked config => marks lts marked config.1 config.2) count →
+      capabilityTableUntil lts configs fuel marked =
+        saturateN configs capabilityConfigMem
+          (fun marked config => marks lts marked config.1 config.2) (count + fuel) := by
+  induction fuel with
+  | zero =>
+    intro count marked hMarked
+    simpa [capabilityTableUntil] using hMarked
+  | succ fuel ih =>
+    intro count marked hMarked
+    rw [capabilityTableUntil]
+    split_ifs with hStable
+    · have hFixed : saturateStep configs capabilityConfigMem
+          (fun marked config => marks lts marked config.1 config.2)
+          (saturateN configs capabilityConfigMem
+            (fun marked config => marks lts marked config.1 config.2) count) =
+            saturateN configs capabilityConfigMem
+              (fun marked config => marks lts marked config.1 config.2) count := by
+        simpa [hMarked] using hStable
+      rw [hMarked]
+      exact (capabilitySaturateN_stable lts configs count hFixed (fuel + 1)).symm
+    · have hExpanded : saturateStep configs capabilityConfigMem
+          (fun marked config => marks lts marked config.1 config.2) marked =
+          saturateN configs capabilityConfigMem
+            (fun marked config => marks lts marked config.1 config.2) (count + 1) := by
+        rw [hMarked, saturateN]
+      simpa only [Nat.add_succ, Nat.succ_add] using
+        (ih (count + 1) _ hExpanded)
+
+lemma capabilityTable_eq_saturate (lts : CCS.FiniteLTS Action State)
+    (state : State) (competitors : StateSet State) :
+    capabilityTable lts state competitors =
+      saturate (capabilityConfigs (queryConfigs lts state competitors)) capabilityConfigMem
+        (fun marked config => marks lts marked config.1 config.2) := by
+  let domain := capabilityConfigs (queryConfigs lts state competitors)
+  change capabilityTableUntil lts domain domain.length [] =
+    saturateN domain capabilityConfigMem
+      (fun marked config => marks lts marked config.1 config.2) domain.length
+  simpa only [saturateN, Nat.zero_add] using
+    (capabilityTableUntil_eq_saturateN lts domain domain.length 0 [] rfl)
+
 /-- The bounded Ready evaluator computes the Mathlib least marker table. -/
 theorem capabilityTable_eq_capabilityTableLfp
     (lts : CCS.FiniteLTS Action State)
@@ -1631,7 +1741,8 @@ theorem capabilityTable_eq_capabilityTableLfp
     (by
       intro left right hSubset config hMarks
       exact marksSet_mono lts hSubset config.1 config.2 hMarks)
-  simpa only [capabilityTable, capabilityTableLfp, configs] using hTable
+  rw [capabilityTable_eq_saturate]
+  simpa only [capabilityTableLfp, configs] using hTable
 
 /-- A valid final-table Ready mark is recorded in the executable capability table. -/
 lemma capabilityTable_closed
