@@ -45,16 +45,24 @@ This repository contains a Lean formalization of how [generalized equivalence ch
    ```
    lake build
    ```
-3. To decide whether one state is trace-preordered to another in a CSV transition system, execute:
+3. To compare two states in a CSV transition system, execute:
    ```
-  lake exe Main <transitions.csv> <left-state-id> <right-state-id>
+  lake exe Main <trace|ready> <transitions.csv> <left-state-id> <right-state-id>
    ```
   Each non-empty CSV line must contain `source-state-id,target-state-id,transition-label`.
-  State IDs are non-negative integers. For example:
+  State IDs are non-negative integers. In `trace` mode, the executable prints a Boolean
+  trace-preorder decision:
   ```
-  lake exe Main assets/peterson_mutex_5_15.csv 5 15
+  lake exe Main trace assets/peterson_mutex_5_15.csv 5 15
   ```
-  The executable prints `tracePreordered(left-state-id, right-state-id) = true` or `false`.
+  In `ready` mode, it lists the preorders that hold from the left state to the right:
+  ```
+  lake exe Main ready tests/ready_modes.csv 4 5
+  # Holding preorders for (4, 5): trace, failures
+  ```
+  The Ready hierarchy consists of trace, simulation, failures, and ready simulation.
+  A preorder holds when no minimal distinguishing capability is below its threshold;
+  `none` means none of the four hold.
 
 Run the executable interface regression test with `bash tests/main.sh`.
 

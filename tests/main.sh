@@ -16,13 +16,22 @@ check_output() {
   fi
 }
 
-check_output 'tracePreordered(5, 15) = true' assets/peterson_mutex_5_15.csv 5 15
-check_output 'tracePreordered(15, 2) = false' assets/peterson_mutex_5_15.csv 15 2
+check_output 'tracePreordered(5, 15) = true' trace assets/peterson_mutex_5_15.csv 5 15
+check_output 'tracePreordered(15, 2) = false' trace assets/peterson_mutex_5_15.csv 15 2
+check_output 'Holding preorders for (0, 0): trace, simulation, failures, ready simulation' \
+  ready tests/ready_modes.csv 0 0
+check_output 'Holding preorders for (0, 1): trace, simulation' ready tests/ready_modes.csv 0 1
+check_output 'Holding preorders for (4, 5): trace, failures' ready tests/ready_modes.csv 4 5
+check_output 'Holding preorders for (1, 0): none' ready tests/ready_modes.csv 1 0
+check_output "Input error: unknown mode 'unknown' (expected trace or ready)" \
+  unknown tests/ready_modes.csv 0 1
+check_output 'Usage: Main <trace|ready> <transitions.csv> <left-state-id> <right-state-id>' \
+  tests/ready_modes.csv 0 1
 
 bad_csv=$(mktemp)
 trap 'rm -f "$bad_csv"' EXIT
 printf '5,15\n' > "$bad_csv"
 check_output 'CSV parse error: line 1: expected exactly three comma-separated fields' \
-  "$bad_csv" 5 15
+  ready "$bad_csv" 5 15
 
 printf 'Executable interface tests passed\n'
