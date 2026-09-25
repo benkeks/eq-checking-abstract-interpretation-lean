@@ -8,3 +8,6 @@
 6,9,c
 7,9,b
 8,9,c
+4,Left , initial
+5,Right,initial
+10,Idle,isolated

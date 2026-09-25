@@ -47,18 +47,20 @@ This repository contains a Lean formalization of how [generalized equivalence ch
    ```
 3. To compare two states in a CSV transition system, execute:
    ```
-  lake exe Main <trace|ready> <transitions.csv> <left-state-id> <right-state-id>
+  lake exe Main <trace|ready> <transitions.csv> <left-state> <right-state>
    ```
-  Each non-empty CSV line must contain `source-state-id,target-state-id,transition-label`.
-  State IDs are non-negative integers. In `trace` mode, the executable prints a Boolean
-  trace-preorder decision:
+  Transition rows contain `source-state-id,target-state-id,transition-label`.
+  A state may also have a `state-id,state-name,annotation` row; names contain letters
+  and must be unique. State arguments may be non-negative IDs or names from the CSV.
+  In `trace` mode, the executable prints a Boolean trace-preorder decision:
   ```
   lake exe Main trace assets/peterson_mutex_5_15.csv 5 15
+  lake exe Main trace assets/ltbts1.csv L27 R27
   ```
   In `ready` mode, it lists the preorders that hold from the left state to the right:
   ```
-  lake exe Main ready tests/ready_modes.csv 4 5
-  # Holding preorders for (4, 5): trace, failures
+  lake exe Main ready tests/ready_modes.csv Left Right
+  # Holding preorders for (Left, Right): trace, failures
   ```
   The Ready hierarchy consists of trace, simulation, failures, and ready simulation.
   A preorder holds when no minimal distinguishing capability is below its threshold;

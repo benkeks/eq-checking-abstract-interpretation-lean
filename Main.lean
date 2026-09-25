@@ -9,44 +9,75 @@ structure Transition where
   target : Nat
   label : String
 
+structure StateName where
+  state : Nat
+  name : String
+  annotation : String
+
+structure ParsedLTS where
+  transitions : List Transition
+  names : List StateName
+
 private def parseState (lineNumber : Nat) (fieldName value : String) : Except String Nat :=
   let value := value.trimAscii.toString
   match value.toNat? with
   | some state => .ok state
   | none => .error s!"line {lineNumber}: invalid {fieldName} state ID '{value}'"
 
-private def parseTransition (lineNumber : Nat) (line : String) : Except String Transition := do
+private def parseRow (lineNumber : Nat) (line : String) : Except String (Sum Transition StateName) := do
   match line.splitOn "," with
-  | [source, target, label] =>
+  | [source, targetText, label] =>
     let source <- parseState lineNumber "source" source
-    let target <- parseState lineNumber "target" target
+    let targetText := targetText.trimAscii.toString
     let label := label.trimAscii.toString
-    if label.isEmpty then
-      throw s!"line {lineNumber}: transition label must not be empty"
-    else
-      pure { source, target, label }
+    match targetText.toNat? with
+    | some target =>
+      if label.isEmpty then
+        throw s!"line {lineNumber}: transition label must not be empty"
+      else
+        pure (.inl { source, target, label })
+    | none =>
+      if !targetText.toList.any Char.isAlpha then
+        throw s!"line {lineNumber}: invalid target state ID or name '{targetText}'"
+      else
+        pure (.inr { state := source, name := targetText, annotation := label })
   | _ => throw s!"line {lineNumber}: expected exactly three comma-separated fields"
 
-private def parseLines : Nat → List String → Except String (List Transition)
-  | _, [] => .ok []
-  | lineNumber, line :: lines => do
-    let transitions <- parseLines (lineNumber + 1) lines
+private def parseLines (lineNumber : Nat) (parsed : ParsedLTS) : List String → Except String ParsedLTS
+  | [] => .ok { transitions := parsed.transitions.reverse, names := parsed.names.reverse }
+  | line :: lines => do
     if line.trimAscii.toString.isEmpty then
-      pure transitions
+      parseLines (lineNumber + 1) parsed lines
     else
-      pure ((← parseTransition lineNumber line) :: transitions)
+      match ← parseRow lineNumber line with
+      | .inl transition =>
+        parseLines (lineNumber + 1) { parsed with transitions := transition :: parsed.transitions } lines
+      | .inr entry =>
+        if parsed.names.any (fun name => name.name == entry.name) then
+          throw s!"line {lineNumber}: duplicate state name '{entry.name}'"
+        else
+          parseLines (lineNumber + 1) { parsed with names := entry :: parsed.names } lines
 
-private def parseTransitions (contents : String) : Except String (List Transition) :=
-  parseLines 1 (contents.splitOn "\n")
+private def parseTransitions (contents : String) : Except String ParsedLTS :=
+  parseLines 1 { transitions := [], names := [] } (contents.splitOn "\n")
 
-private def toLTS (transitions : List Transition) : FiniteLTS String Nat :=
-  let states := (transitions.flatMap (fun transition => [transition.source, transition.target])).eraseDups
-  let actions := (transitions.map Transition.label).eraseDups
+private def toLTS (parsed : ParsedLTS) : FiniteLTS String Nat :=
+  let states := ((parsed.transitions.flatMap (fun transition => [transition.source, transition.target])) ++
+    parsed.names.map StateName.state).eraseDups
+  let actions := (parsed.transitions.map Transition.label).eraseDups
   { states
     actions
     next := fun state action =>
-      (transitions.filter (fun transition => transition.source == state && transition.label == action)
+      (parsed.transitions.filter (fun transition => transition.source == state && transition.label == action)
         ).map Transition.target }
+
+private def resolveState (parsed : ParsedLTS) (text : String) : Except String Nat :=
+  match text.toNat? with
+  | some state => .ok state
+  | none =>
+    match parsed.names.find? (fun entry => entry.name == text) with
+    | some entry => .ok entry.state
+    | none => .error s!"Input error: unknown state name '{text}'"
 
 private def preorderName : Ready.Capability → String
   | .T => "trace"
@@ -60,29 +91,30 @@ private def holdingReadyPreorders (lts : FiniteLTS String Nat) (left right : Nat
     !minimal.any (fun requirement => Ready.FiniteLTS.capLeBool requirement threshold))).map preorderName
 
 private def usage : String :=
-  "Usage: Main <trace|ready> <transitions.csv> <left-state-id> <right-state-id>"
+  "Usage: Main <trace|ready> <transitions.csv> <left-state> <right-state>"
 
 private def run (mode csvPath leftStateText rightStateText : String) : IO Unit := do
-  match String.toNat? leftStateText, String.toNat? rightStateText with
-  | some leftState, some rightState =>
-    try
-      match parseTransitions (← IO.FS.readFile csvPath) with
-      | .error message => IO.eprintln s!"CSV parse error: {message}"
-      | .ok transitions =>
-        let lts := toLTS transitions
+  try
+    match parseTransitions (← IO.FS.readFile csvPath) with
+    | .error message => IO.eprintln s!"CSV parse error: {message}"
+    | .ok parsed =>
+      match resolveState parsed leftStateText, resolveState parsed rightStateText with
+      | .error message, _ => IO.eprintln message
+      | _, .error message => IO.eprintln message
+      | .ok leftState, .ok rightState =>
+        let lts := toLTS parsed
         if !lts.states.contains leftState then
           IO.eprintln s!"Input error: state ID {leftState} does not occur in the transition system"
         else if !lts.states.contains rightState then
           IO.eprintln s!"Input error: state ID {rightState} does not occur in the transition system"
         else if mode == "trace" then
-          IO.println s!"tracePreordered({leftState}, {rightState}) = {FiniteLTS.tracePreordered lts leftState rightState}"
+          IO.println s!"tracePreordered({leftStateText}, {rightStateText}) = {FiniteLTS.tracePreordered lts leftState rightState}"
         else
           let preorders := holdingReadyPreorders lts leftState rightState
           let names := if preorders.isEmpty then "none" else String.intercalate ", " preorders
-          IO.println s!"Holding preorders for ({leftState}, {rightState}): {names}"
-    catch exception =>
-      IO.eprintln s!"Unable to read '{csvPath}': {exception}"
-  | _, _ => IO.eprintln "Input error: state IDs must be non-negative integers"
+          IO.println s!"Holding preorders for ({leftStateText}, {rightStateText}): {names}"
+  catch exception =>
+    IO.eprintln s!"Unable to read '{csvPath}': {exception}"
 
 def main (args : List String) : IO Unit := do
   match args with
