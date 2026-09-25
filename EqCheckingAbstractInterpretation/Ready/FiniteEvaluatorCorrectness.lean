@@ -189,6 +189,77 @@ lemma mem_assignments_iff
     (List.range (competitorsOf lts competitors).length)
     (competitorsOf lts competitors) assignment
 
+private def assignmentsWithChoices (choices : List (Option (Nat × Action × Capability))) :
+    List State → List (Assignment Action)
+  | [] => [[]]
+  | _ :: competitors =>
+    (assignmentsWithChoices choices competitors).flatMap
+      (fun tail => choices.map (fun choice => choice :: tail))
+
+private lemma assignmentsWithChoices_eq (lts : CCS.FiniteLTS Action State)
+    (slots : List Nat) (competitors : List State) :
+    assignmentsWithChoices (assignmentChoices lts slots) competitors =
+      assignmentsWithSlots lts slots competitors := by
+  induction competitors with
+  | nil => rfl
+  | cons _ competitors ih => simp [assignmentsWithChoices, assignmentsWithSlots, ih]
+
+omit [DecidableEq Action] [DecidableEq State] in
+lemma assignmentsAny_eq_any (choices : List (Option (Nat × Action × Capability)))
+    (competitors : List State) (accept : Assignment Action → Bool) :
+    assignmentsAny choices competitors accept =
+      (assignmentsWithChoices choices competitors).any accept := by
+  induction competitors generalizing accept with
+  | nil => simp [assignmentsAny, assignmentsWithChoices]
+  | cons _ competitors ih =>
+    rw [assignmentsAny, ih, assignmentsWithChoices, List.any_flatMap]
+    simp only [List.any_map, Function.comp_def]
+
+omit [DecidableEq Action] [DecidableEq State] in
+private lemma assignmentsAny_filter_eq
+    (choices : List (Option (Nat × Action × Capability)))
+    (keep : Option (Nat × Action × Capability) → Bool)
+    (competitors : List State) (accept : Assignment Action → Bool) :
+    assignmentsAny (choices.filter keep) competitors accept =
+      assignmentsAny choices competitors (fun assignment => assignment.all keep && accept assignment) := by
+  induction competitors generalizing accept with
+  | nil => simp [assignmentsAny]
+  | cons _ competitors ih =>
+    simp only [assignmentsAny]
+    rw [ih]
+    conv_lhs => rw [assignmentsAny_eq_any]
+    conv_rhs => rw [assignmentsAny_eq_any]
+    apply List.any_congr rfl
+    intro tail
+    by_cases hTail : tail.all keep = true
+    · simp [hTail, List.any_filter, List.all_cons]
+    · simp [hTail, List.any_filter, List.all_cons]
+
+omit [DecidableEq State] in
+private lemma wellFormedAssignmentsAny_eq
+    (choices : List (Option (Nat × Action × Capability)))
+    (competitors : List State) (accept : Assignment Action → Bool) :
+    wellFormedAssignmentsAny choices competitors accept =
+      assignmentsAny choices competitors (fun assignment =>
+        assignmentWellFormed assignment && accept assignment) := by
+  induction competitors generalizing accept with
+  | nil => simp [wellFormedAssignmentsAny, assignmentsAny, assignmentWellFormed]
+  | cons _ competitors ih =>
+    simp only [wellFormedAssignmentsAny, assignmentsAny]
+    rw [ih]
+    conv_lhs => rw [assignmentsAny_eq_any]
+    conv_rhs => rw [assignmentsAny_eq_any]
+    apply List.any_congr rfl
+    intro tail
+    by_cases hTail : assignmentWellFormed tail = true
+    · simp [hTail]
+    · have hCons (choice : Option (Nat × Action × Capability)) :
+          assignmentWellFormed (choice :: tail) = false := by
+        cases choice with
+        | none => simp [assignmentWellFormed, hTail]
+        | some triple => simp [assignmentWellFormed, hTail]
+      simp [hTail, hCons]
+
 /-- Well-formed assignments give each slot one consistent action and capability label. -/
 lemma assignmentWellFormed_sound
     (assignment : Assignment Action)
@@ -1523,6 +1594,57 @@ def marksSet
                 ((successor, shift lts branch.competitors branch.action), childCapability) ∈ marked ∧
                   capLe childCapability branch.capability
 
+private lemma assignment_enabled (lts : CCS.FiniteLTS Action State)
+    (marked : CapabilityTable State) (state : State)
+    (competitors : List State) (assignment : Assignment Action)
+    (hLength : assignment.length = competitors.length)
+    (hWellFormed : assignmentWellFormed assignment = true)
+    (hValid : branchesValid lts marked state
+      (assignmentBranches competitors assignment) = true) :
+    assignment.all (fun choice => match choice with
+      | none => true
+      | some (_, action, _) => !(lts.next state action).isEmpty) = true := by
+  let branches := assignmentBranches competitors assignment
+  have hCover : List.Forall₂
+      (fun competitor choice =>
+        ∀ slot action capability, choice = some (slot, action, capability) →
+          ∃ branch ∈ branches,
+            branch.slot = slot ∧ branch.action = action ∧ branch.capability = capability ∧
+              competitor ∈ branch.competitors) competitors assignment :=
+    assignmentBranches_cover_positive competitors assignment hLength hWellFormed
+  have hEnabled (branch : Branch Action State) (hMember : branch ∈ branches) :
+      !(lts.next state branch.action).isEmpty = true := by
+    obtain ⟨successor, hSuccessor, _⟩ :=
+      (branchesValid_iff lts marked state branches).mp hValid branch hMember
+    cases hNext : lts.next state branch.action with
+    | nil => simp [hNext] at hSuccessor
+    | cons _ _ => simp
+  have hAll : ∀ {xs : List State} {ys : Assignment Action},
+      List.Forall₂
+        (fun competitor choice =>
+          ∀ slot action capability, choice = some (slot, action, capability) →
+            ∃ branch ∈ branches,
+              branch.slot = slot ∧ branch.action = action ∧ branch.capability = capability ∧
+                competitor ∈ branch.competitors) xs ys →
+      ys.all (fun choice => match choice with
+        | none => true
+        | some (_, action, _) => !(lts.next state action).isEmpty) = true := by
+    intro xs ys hCoverage
+    induction hCoverage with
+    | nil => rfl
+    | cons hBranch hRest ih =>
+      rename_i competitor choice competitors assignment
+      simp only [List.all_cons, Bool.and_eq_true]
+      refine ⟨?_, ih⟩
+      cases choice with
+      | none => rfl
+      | some triple =>
+        rcases triple with ⟨slot, action, capability⟩
+        obtain ⟨branch, hMember, _, hAction, _, _⟩ :=
+          hBranch slot action capability rfl
+        simpa [hAction] using hEnabled branch hMember
+  exact hAll hCover
+
 /-- Executable marking is exactly the order-independent proof-facing marker relation. -/
 lemma marks_iff_marksSet
     (lts : CCS.FiniteLTS Action State)
@@ -1531,7 +1653,69 @@ lemma marks_iff_marksSet
     (capability : Capability) :
     marks lts marked config capability = true ↔
       marksSet lts (marked.toFinset : Set (CapabilityConfig State)) config capability := by
-  simp [marks, marksSet, branchesValid_iff, and_assoc]
+  let competitors := competitorsOf lts config.2
+  let choices := assignmentChoices lts (List.range competitors.length)
+  let keep : Option (Nat × Action × Capability) → Bool := fun choice => match choice with
+    | none => true
+    | some (_, action, _) => !(lts.next config.1 action).isEmpty
+  have hSearch (negative : List Action) :
+      wellFormedAssignmentsAny (choices.filter keep) competitors (fun assignment =>
+        let branches := assignmentBranches competitors assignment
+        decide (branchesRequirement negative branches = capability) &&
+          negativeAssignmentValid lts competitors negative assignment &&
+            branchesValid lts marked config.1 branches) =
+      (assignments lts config.2).any (fun assignment =>
+        assignmentWellFormed assignment &&
+          let branches := assignmentBranches competitors assignment
+          decide (branchesRequirement negative branches = capability) &&
+            negativeAssignmentValid lts competitors negative assignment &&
+              branchesValid lts marked config.1 branches) := by
+    rw [wellFormedAssignmentsAny_eq, assignmentsAny_filter_eq, assignmentsAny_eq_any,
+      assignmentsWithChoices_eq]
+    change (assignmentsWithSlots lts (List.range competitors.length) competitors).any
+        (fun assignment => assignment.all keep &&
+          (assignmentWellFormed assignment &&
+            let branches := assignmentBranches competitors assignment
+            decide (branchesRequirement negative branches = capability) &&
+              negativeAssignmentValid lts competitors negative assignment &&
+                branchesValid lts marked config.1 branches)) =
+      (assignmentsWithSlots lts (List.range competitors.length) competitors).any
+        (fun assignment => assignmentWellFormed assignment &&
+          let branches := assignmentBranches competitors assignment
+          decide (branchesRequirement negative branches = capability) &&
+            negativeAssignmentValid lts competitors negative assignment &&
+              branchesValid lts marked config.1 branches)
+    apply Bool.eq_iff_iff.mpr
+    constructor
+    · intro h
+      obtain ⟨assignment, hMember, hAccepted⟩ := List.any_eq_true.mp h
+      simp only [Bool.and_eq_true] at hAccepted
+      apply List.any_eq_true.mpr
+      refine ⟨assignment, hMember, ?_⟩
+      simp only [Bool.and_eq_true]
+      exact hAccepted.2
+    · intro h
+      obtain ⟨assignment, hMember, hAccepted⟩ := List.any_eq_true.mp h
+      have hParts := hAccepted
+      simp only [Bool.and_eq_true] at hParts
+      have hLength := (mem_assignmentsWithSlots_iff lts (List.range competitors.length)
+        competitors assignment).mp hMember |>.1
+      have hKeep := assignment_enabled lts marked config.1 competitors assignment
+        hLength hParts.1 hParts.2.2
+      change assignment.all keep = true at hKeep
+      exact List.any_eq_true.mpr ⟨assignment, hMember,
+        by simp only [Bool.and_eq_true]; exact ⟨hKeep, hParts⟩⟩
+  change ((decide (config.2 = ∅) && decide (capability = .T)) ||
+      (listPowerset lts.actions).any (fun negative =>
+        marks.refuses lts config.1 negative &&
+          wellFormedAssignmentsAny (choices.filter keep) competitors (fun assignment =>
+            let branches := assignmentBranches competitors assignment
+            decide (branchesRequirement negative branches = capability) &&
+              negativeAssignmentValid lts competitors negative assignment &&
+                branchesValid lts marked config.1 branches))) = true ↔
+    marksSet lts (marked.toFinset : Set (CapabilityConfig State)) config capability
+  simp only [hSearch]
+  simp [marksSet, branchesValid_iff, and_assoc, competitors]
 
 /-- Ready marking is monotone in the set of previously marked child configurations. -/
 lemma marksSet_mono

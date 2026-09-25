@@ -89,6 +89,13 @@ def assignments (lts : CCS.FiniteLTS Action State) (competitors : StateSet State
   assignmentsWithSlots lts (List.range (competitorsOf lts competitors).length)
     (competitorsOf lts competitors)
 
+def assignmentsAny (choices : List (Option (Nat × Action × Capability))) :
+    List State → (Assignment Action → Bool) → Bool
+  | [], accept => accept []
+  | _ :: competitors, accept =>
+    assignmentsAny choices competitors (fun tail =>
+      choices.any (fun choice => accept (choice :: tail)))
+
 def assignmentWellFormed : Assignment Action → Bool
   | [] => true
   | none :: assignments => assignmentWellFormed assignments
@@ -99,6 +106,14 @@ def assignmentWellFormed : Assignment Action → Bool
         slot != otherSlot ||
           (decide (action = otherAction) && decide (capability = otherCapability))) &&
       assignmentWellFormed assignments
+
+def wellFormedAssignmentsAny (choices : List (Option (Nat × Action × Capability))) :
+    List State → (Assignment Action → Bool) → Bool
+  | [], accept => accept []
+  | _ :: competitors, accept =>
+    wellFormedAssignmentsAny choices competitors (fun tail =>
+      choices.any (fun choice =>
+        assignmentWellFormed (choice :: tail) && accept (choice :: tail)))
 
 def branchInsert (slot : Nat) (action : Action) (capability : Capability) (competitor : State) :
     List (Branch Action State) → List (Branch Action State)
@@ -163,12 +178,16 @@ def marks (lts : CCS.FiniteLTS Action State) (marked : CapabilityTable State)
   (decide (config.2 = ∅) && decide (capability = .T)) ||
     (listPowerset lts.actions).any (fun negative =>
       refuses lts config.1 negative &&
-        (assignments lts config.2).any (fun assignment =>
-          assignmentWellFormed assignment &&
-            let branches := assignmentBranches (competitorsOf lts config.2) assignment
-            decide (branchesRequirement negative branches = capability) &&
-              negativeAssignmentValid lts (competitorsOf lts config.2) negative assignment &&
-                branchesValid lts marked config.1 branches))
+        let competitors := competitorsOf lts config.2
+        let choices := (assignmentChoices lts (List.range competitors.length)).filter
+          (fun choice => match choice with
+            | none => true
+            | some (_, action, _) => !(lts.next config.1 action).isEmpty)
+        wellFormedAssignmentsAny choices competitors (fun assignment =>
+          let branches := assignmentBranches competitors assignment
+          decide (branchesRequirement negative branches = capability) &&
+            negativeAssignmentValid lts competitors negative assignment &&
+              branchesValid lts marked config.1 branches))
 where
   refuses (lts : CCS.FiniteLTS Action State) (state : State) (negative : List Action) : Bool :=
     negative.all (fun action => (lts.next state action).isEmpty)

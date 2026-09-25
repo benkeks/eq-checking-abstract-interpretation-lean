@@ -65,11 +65,12 @@ private def toLTS (parsed : ParsedLTS) : FiniteLTS String Nat :=
   let states := ((parsed.transitions.flatMap (fun transition => [transition.source, transition.target])) ++
     parsed.names.map StateName.state).eraseDups
   let actions := (parsed.transitions.map Transition.label).eraseDups
+  let successors := parsed.transitions.foldr (fun transition (lookup : Std.HashMap (Nat × String) (List Nat)) =>
+    let key := (transition.source, transition.label)
+    lookup.insert key (transition.target :: lookup.getD key [])) {}
   { states
     actions
-    next := fun state action =>
-      (parsed.transitions.filter (fun transition => transition.source == state && transition.label == action)
-        ).map Transition.target }
+    next := fun state action => successors.getD (state, action) [] }
 
 private def resolveState (parsed : ParsedLTS) (text : String) : Except String Nat :=
   match text.toNat? with
