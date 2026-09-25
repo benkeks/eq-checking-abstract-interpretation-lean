@@ -12,3 +12,4 @@ index.*
 .vscode/
 .lake/
 docbuild/
+*.results
