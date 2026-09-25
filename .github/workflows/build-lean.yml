@@ -39,6 +39,9 @@ jobs:
       - name: Set up Lean
         uses: leanprover/lean-action@v1
 
+      - name: Test executable interface
+        run: bash tests/main.sh
+
       - name: Build Lean docs
         run: |
           rm -rf docbuild

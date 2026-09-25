@@ -56,6 +56,8 @@ This repository contains a Lean formalization of how [generalized equivalence ch
   ```
   The executable prints `tracePreordered(left-state-id, right-state-id) = true` or `false`.
 
+Run the executable interface regression test with `bash tests/main.sh`.
+
 ## Documentation
 
 The GitHub Pages workflow builds Lean API documentation with `doc-gen4` and publishes it under the deployed site `docs/` path to <https://eq-checking-as-abstract-interpretation.equiv.io/>.

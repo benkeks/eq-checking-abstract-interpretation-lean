@@ -38,6 +38,23 @@ def marks (lts : CCS.FiniteLTS Action State) (marked : MarkerTable State)
       (lts.next state action).any (fun successor =>
         configMem (successor, shift lts competitors action) marked))
 
+def successors (lts : CCS.FiniteLTS Action State) : Config State → MarkerTable State
+  | (state, competitors) =>
+    lts.actions.flatMap (fun action =>
+      (lts.next state action).map (fun successor =>
+        (successor, shift lts competitors action)))
+
+def reachUntil (lts : CCS.FiniteLTS Action State) :
+    Nat → MarkerTable State → MarkerTable State
+  | 0, seen => seen
+  | fuel + 1, seen =>
+    let fresh := (seen.flatMap (successors lts)).filter (fun config => !configMem config seen)
+    if fresh.isEmpty then seen else reachUntil lts fuel (seen ++ fresh.eraseDups)
+
+def reachableConfigs (lts : CCS.FiniteLTS Action State)
+    (initial : Config State) : MarkerTable State :=
+  reachUntil lts (lts.states.length * 2 ^ lts.states.length + 1) [initial]
+
 /-- Saturated Boolean form of `DTrSharp` over a finite transition system. -/
 def markerTable (lts : CCS.FiniteLTS Action State) : MarkerTable State :=
   saturate (configs lts) configMem (fun marked config => marks lts marked config.1 config.2)
@@ -47,9 +64,16 @@ def abstractDiff (lts : CCS.FiniteLTS Action State) (state : State)
     (competitors : StateSet State) : Bool :=
   configMem (state, competitors) (markerTable lts)
 
+/-- Evaluate one abstract-difference query on its reachable configurations. -/
+def abstractDiffReachable (lts : CCS.FiniteLTS Action State) (state : State)
+    (competitors : StateSet State) : Bool :=
+  let relevant := reachableConfigs lts (state, competitors)
+  configMem (state, competitors)
+    (saturate relevant configMem (fun marked config => marks lts marked config.1 config.2))
+
 def tracePreordered (lts : CCS.FiniteLTS Action State) (left_state : State)
     (right_state : State) : Bool :=
-  ¬ abstractDiff lts left_state {right_state}
+  ¬ abstractDiffReachable lts left_state {right_state}
 
 end FiniteLTS
 end EqCheckingAbstractInterpretation.Trace

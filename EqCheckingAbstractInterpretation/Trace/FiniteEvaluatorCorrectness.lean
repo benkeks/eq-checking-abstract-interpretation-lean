@@ -1,6 +1,6 @@
 import EqCheckingAbstractInterpretation.FiniteEvaluator.Correctness
 import EqCheckingAbstractInterpretation.Trace.FiniteEvaluator
-import EqCheckingAbstractInterpretation.Trace.AbstractTransformer
+import EqCheckingAbstractInterpretation.Trace.Correctness
 
 namespace EqCheckingAbstractInterpretation.Trace
 
@@ -47,6 +47,179 @@ lemma mem_configs_iff (lts : CCS.FiniteLTS Action State)
     refine ⟨state, hState, ?_⟩
     rw [List.mem_map]
     exact ⟨competitors, subset_mem_powerset lts.states competitors hCompetitors, rfl⟩
+
+lemma successors_closed (lts : CCS.FiniteLTS Action State)
+    (hNextClosed : ∀ state action target, state ∈ lts.states →
+      target ∈ lts.next state action → target ∈ lts.states)
+    (config successor : Config State)
+    (hConfig : config ∈ configs lts)
+    (hSuccessor : successor ∈ successors lts config) :
+    successor ∈ configs lts := by
+  rcases config with ⟨state, competitors⟩
+  rcases (mem_configs_iff lts state competitors).mp hConfig with ⟨hState, hCompetitors⟩
+  simp only [successors, List.mem_flatMap, List.mem_map] at hSuccessor
+  rcases hSuccessor with ⟨action, _, target, hTarget, rfl⟩
+  apply (mem_configs_iff lts target (shift lts competitors action)).mpr
+  constructor
+  · exact hNextClosed state action target hState hTarget
+  · intro next hNext
+    rcases (mem_shift_iff lts competitors action next).mp hNext with
+      ⟨competitor, hCompetitor, hDerivative⟩
+    simpa using hNextClosed competitor action next
+      (by simpa using hCompetitors hCompetitor) hDerivative
+
+private lemma powerset_length (states : List State) :
+    (powerset states).length = 2 ^ states.length := by
+  induction states with
+  | nil => simp [powerset]
+  | cons state states ih =>
+    change ((powerset states) ++ (powerset states).map (fun set => insert state set)).length =
+      2 ^ (states.length + 1)
+    simp only [List.length_append, List.length_map, ih, pow_succ]
+    omega
+
+private lemma configs_length (lts : CCS.FiniteLTS Action State) :
+    (configs lts).length = lts.states.length * 2 ^ lts.states.length := by
+  simp [configs, List.length_flatMap, powerset_length]
+
+private lemma reachUntil_contains (lts : CCS.FiniteLTS Action State)
+    (fuel : Nat) (seen : MarkerTable State) (config : Config State)
+    (hConfig : config ∈ seen) : config ∈ reachUntil lts fuel seen := by
+  induction fuel generalizing seen with
+  | zero => exact hConfig
+  | succ fuel ih =>
+    simp only [reachUntil]
+    split_ifs
+    · exact hConfig
+    · exact ih _ (List.mem_append.mpr (Or.inl hConfig))
+
+private lemma reachUntil_subset_closed (lts : CCS.FiniteLTS Action State)
+    (closed : Set (Config State))
+    (hClosed : ∀ config ∈ closed, ∀ successor ∈ successors lts config,
+      successor ∈ closed)
+    (fuel : Nat) (seen : MarkerTable State)
+    (hSeen : ∀ config ∈ seen, config ∈ closed) :
+    ∀ config ∈ reachUntil lts fuel seen, config ∈ closed := by
+  induction fuel generalizing seen with
+  | zero => exact hSeen
+  | succ fuel ih =>
+    simp only [reachUntil]
+    split_ifs
+    · exact hSeen
+    · apply ih
+      intro config hConfig
+      rcases List.mem_append.mp hConfig with hOld | hNew
+      · exact hSeen config hOld
+      · rcases List.mem_filter.mp (List.mem_eraseDups.mp hNew) with ⟨hFlat, _⟩
+        rcases List.mem_flatMap.mp hFlat with ⟨source, hSource, hSuccessor⟩
+        exact hClosed source (hSeen source hSource) config hSuccessor
+
+private lemma reachUntil_successor_closed (lts : CCS.FiniteLTS Action State)
+    (domain : Finset (Config State))
+    (hDomainClosed : ∀ config ∈ domain, ∀ successor ∈ successors lts config,
+      successor ∈ domain)
+    (fuel : Nat) (seen : MarkerTable State)
+    (hSeen : ∀ config ∈ seen, config ∈ domain)
+    (hEnough : domain.card - seen.toFinset.card < fuel) :
+    ∀ config ∈ reachUntil lts fuel seen,
+      ∀ successor ∈ successors lts config,
+        successor ∈ reachUntil lts fuel seen := by
+  induction fuel generalizing seen with
+  | zero => omega
+  | succ fuel ih =>
+    simp only [reachUntil]
+    split_ifs with hFresh
+    · intro config hConfig successor hSuccessor
+      by_contra hMissing
+      have hNotMem : (configMem successor seen) = false := by
+        cases hBool : configMem successor seen with
+        | false => rfl
+        | true => exact False.elim (hMissing ((configMem_iff successor seen).mp hBool))
+      have hNew : successor ∈ (seen.flatMap (successors lts)).filter
+          (fun candidate => !configMem candidate seen) := List.mem_filter.mpr
+        ⟨List.mem_flatMap.mpr ⟨config, hConfig, hSuccessor⟩, by simp [hNotMem]⟩
+      rw [List.isEmpty_iff.mp hFresh] at hNew
+      simp at hNew
+    · let fresh := (seen.flatMap (successors lts)).filter
+          (fun config => !configMem config seen)
+      let next := seen ++ fresh.eraseDups
+      have hFreshNonempty : fresh ≠ [] := by
+        intro hNil
+        exact hFresh (by simp [fresh, hNil])
+      obtain ⟨candidate, hCandidate⟩ := List.exists_mem_of_ne_nil fresh hFreshNonempty
+      have hCandidateMissing : candidate ∉ seen := by
+        intro hMember
+        have hNotMem := (List.mem_filter.mp hCandidate).2
+        have hMem := (configMem_iff candidate seen).mpr hMember
+        simp [hMem] at hNotMem
+      have hCandidateNext : candidate ∈ next :=
+        List.mem_append.mpr (Or.inr (List.mem_eraseDups.mpr hCandidate))
+      have hSubset : seen.toFinset ⊆ next.toFinset := by
+        intro config hConfig
+        exact List.mem_toFinset.mpr (List.mem_append.mpr
+          (Or.inl (List.mem_toFinset.mp hConfig)))
+      have hStrict : seen.toFinset.card < next.toFinset.card := by
+        apply Finset.card_lt_card
+        apply (Finset.ssubset_iff_subset_ne).mpr
+        refine ⟨hSubset, ?_⟩
+        intro hEqual
+        apply hCandidateMissing
+        apply List.mem_toFinset.mp
+        rw [hEqual]
+        exact List.mem_toFinset.mpr hCandidateNext
+      have hNextDomain : ∀ config ∈ next, config ∈ domain := by
+        intro config hConfig
+        rcases List.mem_append.mp hConfig with hOld | hNew
+        · exact hSeen config hOld
+        · rcases List.mem_filter.mp (List.mem_eraseDups.mp hNew) with ⟨hFlat, _⟩
+          rcases List.mem_flatMap.mp hFlat with ⟨source, hSource, hSuccessor⟩
+          exact hDomainClosed source (hSeen source hSource) config hSuccessor
+      have hNextEnough : domain.card - next.toFinset.card < fuel := by
+        have hBound := Finset.card_le_card (show next.toFinset ⊆ domain from
+          fun config hConfig => hNextDomain config (List.mem_toFinset.mp hConfig))
+        omega
+      exact ih next hNextDomain hNextEnough
+
+private lemma reachableConfigs_spec (lts : CCS.FiniteLTS Action State)
+    (hNextClosed : ∀ state action target, state ∈ lts.states →
+      target ∈ lts.next state action → target ∈ lts.states)
+    (initial : Config State) (hInitial : initial ∈ configs lts) :
+    (∀ config ∈ reachableConfigs lts initial, config ∈ configs lts) ∧
+    initial ∈ reachableConfigs lts initial ∧
+    (∀ config ∈ reachableConfigs lts initial,
+      ∀ successor ∈ successors lts config,
+        successor ∈ reachableConfigs lts initial) := by
+  let domain := (configs lts).toFinset
+  have hDomainClosed : ∀ config ∈ domain, ∀ successor ∈ successors lts config,
+      successor ∈ domain := by
+    intro config hConfig successor hSuccessor
+    exact List.mem_toFinset.mpr (successors_closed lts hNextClosed config successor
+      (List.mem_toFinset.mp hConfig) hSuccessor)
+  have hBound : domain.card ≤ lts.states.length * 2 ^ lts.states.length := by
+    calc
+      domain.card ≤ (configs lts).length := List.toFinset_card_le (configs lts)
+      _ = _ := configs_length lts
+  have hEnough : domain.card - ([initial].toFinset).card <
+      lts.states.length * 2 ^ lts.states.length + 1 := by omega
+  constructor
+  · intro config hConfig
+    exact List.mem_toFinset.mp
+      (reachUntil_subset_closed lts (domain : Set (Config State))
+        (fun source hSource successor hSuccessor =>
+          hDomainClosed source hSource successor hSuccessor)
+        _ [initial] (by
+          intro source hSource
+          simp only [List.mem_singleton] at hSource
+          subst source
+          exact List.mem_toFinset.mpr hInitial) config hConfig)
+  constructor
+  · exact reachUntil_contains lts _ [initial] initial (by simp)
+  · apply reachUntil_successor_closed lts domain hDomainClosed _ [initial]
+    · intro source hSource
+      simp only [List.mem_singleton] at hSource
+      subst source
+      exact List.mem_toFinset.mpr hInitial
+    · exact hEnough
 
 /-- Decoding an executable shift agrees with the semantic lifted derivative. -/
 lemma decodeSet_shift_iff
@@ -203,6 +376,100 @@ theorem markerTable_toFinset_eq_tableLfp (lts : CCS.FiniteLTS Action State) :
     (fun marked config => marks_iff_marksSet lts marked config.1 config.2)
     (fun hSubset config hMarks => marksSet_mono lts hSubset config hMarks)
 
+private lemma tableLfp_restrict (lts : CCS.FiniteLTS Action State)
+    (domain relevant : Finset (Config State))
+    (hSubset : relevant ⊆ domain)
+    (hClosed : ∀ config ∈ relevant, ∀ successor ∈ successors lts config,
+      successor ∈ relevant)
+    (config : Config State) (hConfig : config ∈ relevant) :
+    config ∈ tableLfp (domain : Set (Config State)) (marksSet lts)
+      (fun h config hMarks => marksSet_mono lts h config hMarks) ↔
+    config ∈ tableLfp (relevant : Set (Config State)) (marksSet lts)
+      (fun h config hMarks => marksSet_mono lts h config hMarks) := by
+  let global := tableLfp (domain : Set (Config State)) (marksSet lts)
+    (fun h config hMarks => marksSet_mono lts h config hMarks)
+  let localTable := tableLfp (relevant : Set (Config State)) (marksSet lts)
+    (fun h config hMarks => marksSet_mono lts h config hMarks)
+  have hLocalSubset : localTable ⊆ global := by
+    apply tableLfp_subset_of_prefixed _ _ _ global
+    intro candidate hCandidate
+    rcases hCandidate with hOld | ⟨hRelevant, hMarks⟩
+    · exact hOld
+    · have hStep : candidate ∈ tableStep (domain : Set (Config State))
+          (marksSet lts) global := Or.inr ⟨hSubset hRelevant, hMarks⟩
+      rw [tableStep_tableLfp (domain : Set (Config State)) (marksSet lts)
+        (fun h config hMarks => marksSet_mono lts h config hMarks)] at hStep
+      exact hStep
+  let upper : Set (Config State) := { candidate | candidate ∉ relevant ∨ candidate ∈ localTable }
+  have hGlobalSubset : global ⊆ upper := by
+    apply tableLfp_subset_of_prefixed _ _ _ upper
+    intro candidate hCandidate
+    by_cases hRelevant : candidate ∈ relevant
+    · right
+      rcases hCandidate with hOld | ⟨_, hMarks⟩
+      · exact hOld.resolve_left (fun hNot => hNot hRelevant)
+      · have hLocalMarks : marksSet lts localTable candidate := by
+          rcases hMarks with hEmpty | ⟨action, hAction, successor, hNext, hUpper⟩
+          · exact Or.inl hEmpty
+          · have hSuccessor : (successor, shift lts candidate.2 action) ∈
+                successors lts candidate := by
+              rcases candidate with ⟨state, competitors⟩
+              exact List.mem_flatMap.mpr ⟨action, hAction,
+                List.mem_map.mpr ⟨successor, hNext, rfl⟩⟩
+            have hSuccessorRelevant := hClosed candidate hRelevant
+              (successor, shift lts candidate.2 action) hSuccessor
+            exact Or.inr ⟨action, hAction, successor, hNext,
+              hUpper.resolve_left (fun hNot => hNot hSuccessorRelevant)⟩
+        have hStep : candidate ∈ tableStep (relevant : Set (Config State))
+          (marksSet lts) localTable := Or.inr ⟨hRelevant, hLocalMarks⟩
+        rw [tableStep_tableLfp (relevant : Set (Config State)) (marksSet lts)
+          (fun h config hMarks => marksSet_mono lts h config hMarks)] at hStep
+        exact hStep
+    · exact Or.inl hRelevant
+  constructor
+  · intro hGlobal
+    exact (hGlobalSubset hGlobal).resolve_left (fun hNot => hNot hConfig)
+  · intro hLocal
+    exact hLocalSubset hLocal
+
+/-- Query-local evaluation agrees with the full marker table on closed finite models. -/
+theorem abstractDiffReachable_eq_abstractDiff (lts : CCS.FiniteLTS Action State)
+    (hNextClosed : ∀ source action target, source ∈ lts.states →
+      target ∈ lts.next source action → target ∈ lts.states)
+    (state : State) (competitors : StateSet State)
+    (hState : state ∈ lts.states)
+    (hCompetitors : competitors ⊆ lts.states.toFinset) :
+    abstractDiffReachable lts state competitors = abstractDiff lts state competitors := by
+  let query : Config State := (state, competitors)
+  let relevant := reachableConfigs lts query
+  have hQuery : query ∈ configs lts :=
+    (mem_configs_iff lts state competitors).mpr ⟨hState, hCompetitors⟩
+  obtain ⟨hSubset, hInitial, hClosed⟩ := reachableConfigs_spec lts hNextClosed query hQuery
+  have hRelevantSubset : relevant.toFinset ⊆ (configs lts).toFinset := by
+    intro config hConfig
+    exact List.mem_toFinset.mpr (hSubset config (List.mem_toFinset.mp hConfig))
+  have hRelevantClosed : ∀ config ∈ relevant.toFinset,
+      ∀ successor ∈ successors lts config, successor ∈ relevant.toFinset := by
+    intro config hConfig successor hSuccessor
+    exact List.mem_toFinset.mpr (hClosed config (List.mem_toFinset.mp hConfig)
+      successor hSuccessor)
+  have hLocalTable := saturate_toFinset_eq_tableLfp relevant configMem
+    (fun marked config => marks lts marked config.1 config.2) (marksSet lts)
+    (fun config marked => configMem_iff config marked)
+    (fun marked config => marks_iff_marksSet lts marked config.1 config.2)
+    (fun h config hMarks => marksSet_mono lts h config hMarks)
+  apply Bool.eq_iff_iff.mpr
+  change configMem query (saturate relevant configMem
+      (fun marked config => marks lts marked config.1 config.2)) = true ↔
+    configMem query (markerTable lts) = true
+  rw [configMem_iff, configMem_iff, ← List.mem_toFinset, ← List.mem_toFinset]
+  change query ∈ ((saturate relevant configMem
+      (fun marked config => marks lts marked config.1 config.2)).toFinset : Set (Config State)) ↔
+    query ∈ ((markerTable lts).toFinset : Set (Config State))
+  rw [hLocalTable, markerTable_toFinset_eq_tableLfp]
+  exact (tableLfp_restrict lts (configs lts).toFinset relevant.toFinset
+    hRelevantSubset hRelevantClosed query (List.mem_toFinset.mpr hInitial)).symm
+
 /-- A configuration satisfying the Trace marker rule belongs to the final marker table. -/
 lemma markerTable_closed (lts : CCS.FiniteLTS Action State)
     (state : State) (competitors : StateSet State)
@@ -353,6 +620,60 @@ theorem abstractDiff_correct
     abstractDiff lts state competitors = true ↔
       AbstractDiff env (decode state) (CCS.FiniteLTS.decodeSet decode competitors) :=
   abstractDiff_iff lts env decode certificate.realizes state competitors hState hCompetitors
+
+/-- The executable query-local marker agrees with CCS trace semantics. -/
+theorem abstractDiffReachable_correct
+    {Name : Type w}
+    (lts : CCS.FiniteLTS Action State)
+    (env : Env Action Name)
+    (decode : State → CCS Action Name)
+    (certificate : AbstractDiffCorrect lts env decode)
+    (state : State) (competitors : StateSet State)
+    (hState : state ∈ lts.states)
+    (hCompetitors : competitors ⊆ lts.states.toFinset) :
+    abstractDiffReachable lts state competitors = true ↔
+      AbstractDiff env (decode state) (CCS.FiniteLTS.decodeSet decode competitors) := by
+  rw [abstractDiffReachable_eq_abstractDiff lts certificate.realizes.next_closed state
+    competitors hState hCompetitors]
+  exact abstractDiff_correct lts env decode certificate state competitors hState hCompetitors
+
+/-- The executable Boolean preorder agrees with semantic trace inclusion. -/
+theorem tracePreordered_correct
+    {Name : Type w}
+    (lts : CCS.FiniteLTS Action State)
+    (env : Env Action Name)
+    (decode : State → CCS Action Name)
+    (certificate : AbstractDiffCorrect lts env decode)
+    (left right : State)
+    (hLeft : left ∈ lts.states)
+    (hRight : right ∈ lts.states) :
+    tracePreordered lts left right = true ↔
+      TracePreorder env (decode left) (decode right) := by
+  have hSingleton : ({right} : StateSet State) ⊆ lts.states.toFinset := by
+    simpa using hRight
+  have hDecode : CCS.FiniteLTS.decodeSet decode ({right} : StateSet State) =
+      ({decode right} : ProcSet Action Name) := by
+    funext process
+    apply propext
+    simp only [CCS.FiniteLTS.decodeSet, Finset.mem_singleton, exists_eq_left]
+    change decode right = process ↔ process ∈ ({decode right} : Set (CCS Action Name))
+    simp only [Set.mem_singleton_iff, eq_comm]
+  have hDiff := abstractDiffReachable_correct lts env decode certificate left {right}
+    hLeft hSingleton
+  rw [hDecode] at hDiff
+  rw [tracePreorder_iff_no_marker]
+  change tracePreordered lts left right = true ↔
+    ¬ AbstractDiff env (decode left) ({decode right} : ProcSet Action Name)
+  constructor
+  · intro hPre hMarker
+    have hBool := hDiff.mpr hMarker
+    simp [tracePreordered, hBool] at hPre
+  · intro hNoMarker
+    have hFalse : abstractDiffReachable lts left {right} = false := by
+      cases hBool : abstractDiffReachable lts left {right} with
+      | false => rfl
+      | true => exact False.elim (hNoMarker (hDiff.mp hBool))
+    simp [tracePreordered, hFalse]
 
 end FiniteLTS
 end EqCheckingAbstractInterpretation.Trace
