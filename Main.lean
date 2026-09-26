@@ -83,7 +83,7 @@ private def resolveState (parsed : ParsedLTS) (text : String) : Except String Na
 private def preorderName : Ready.Capability → String
   | .T => "trace"
   | .S => "simulation"
-  | .F => "failures"
+  | .F => "failure"
   | .RS => "ready-simulation"
 
 private def holdingReadyPreorders (lts : FiniteLTS String Nat) (left right : Nat) : List String :=
