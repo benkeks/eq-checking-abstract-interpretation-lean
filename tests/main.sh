@@ -18,14 +18,16 @@ check_output() {
 
 check_output 'tracePreordered(5, 15) = true' trace assets/peterson_mutex_5_15.csv 5 15
 check_output 'tracePreordered(15, 2) = false' trace assets/peterson_mutex_5_15.csv 15 2
-check_output 'Holding preorders for (0, 0): trace, simulation, failures, ready simulation' \
+check_output 'Holding preorders for (0, 0): trace, simulation, failures, ready-simulation' \
   ready tests/ready_modes.csv 0 0
 check_output 'Holding preorders for (0, 1): trace, simulation' ready tests/ready_modes.csv 0 1
 check_output 'Holding preorders for (4, 5): trace, failures' ready tests/ready_modes.csv 4 5
 check_output 'Holding preorders for (1, 0): none' ready tests/ready_modes.csv 1 0
-check_output 'Holding preorders for (Left, Right): trace, simulation' \
+check_output 'Holding preorders for (Left, Right): trace, failures' \
   ready tests/ready_modes.csv Left Right
-check_output 'Holding preorders for (Left, 1): trace, simulation' \
+check_output 'Holding preorders for (Right, Left): trace, simulation' \
+  ready tests/ready_modes.csv Right Left
+check_output 'Holding preorders for (Left, 1): none' \
   ready tests/ready_modes.csv Left 1
 check_output 'tracePreordered(Left, Right) = true' trace tests/ready_modes.csv Left Right
 check_output 'tracePreordered(Idle, Idle) = true' trace tests/ready_modes.csv Idle Idle
