@@ -84,7 +84,7 @@ private def preorderName : Ready.Capability → String
   | .T => "trace"
   | .S => "simulation"
   | .F => "failures"
-  | .RS => "ready simulation"
+  | .RS => "ready-simulation"
 
 private def holdingReadyPreorders (lts : FiniteLTS String Nat) (left right : Nat) : List String :=
   let minimal := Ready.FiniteLTS.readyCapabilities lts left {right}
