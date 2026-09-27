@@ -2302,19 +2302,7 @@ lemma branchesRequirement_le_of_origins
       (req (decide (1 < pos.length) ||
         (!neg.isEmpty && decide (0 < pos.length))) (!neg.isEmpty)) := by
     rw [hNegEmpty]
-    have hSim :
-        (decide (1 < branches.length) || (!neg.isEmpty && decide (0 < branches.length))) = true →
-        (decide (1 < pos.length) || (!neg.isEmpty && decide (0 < pos.length))) = true := by
-      simp only [Bool.or_eq_true, Bool.and_eq_true, decide_eq_true_eq]
-      rintro (hMany | ⟨hNeg, hNonempty⟩)
-      · exact Or.inl (Nat.lt_of_lt_of_le hMany hLength)
-      · exact Or.inr ⟨hNeg, Nat.lt_of_lt_of_le hNonempty hLength⟩
-    cases hBranch : decide (1 < branches.length) ||
-        (!neg.isEmpty && decide (0 < branches.length)) <;>
-      cases hPos : decide (1 < pos.length) ||
-        (!neg.isEmpty && decide (0 < pos.length)) <;>
-      cases hRefusal : !neg.isEmpty <;>
-      simp [req, capLe, hBranch, hPos] at hSim ⊢
+    grind [req, capLe]
   simpa only [branchesRequirement, reqOfObs, nodeRequirement] using capJoin_mono hShape hChildren
 
 /-- A finite partition satisfying the semantic node bounds produces a cofinal table entry. -/

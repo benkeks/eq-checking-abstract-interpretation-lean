@@ -558,29 +558,14 @@ theorem rsObsCap_S_node_neg_nil
   have hSelf : capLe
       (req (decide (1 < pos.length) || (!neg.isEmpty && decide (0 < pos.length)))
         (!neg.isEmpty)) .S := (capJoin_le hCap).1
-  cases neg with
-  | nil => rfl
-  | cons b bs =>
-      by_cases hLen : 1 < pos.length
-      · simp [req, hLen, capLe] at hSelf
-      · by_cases hPos : 0 < pos.length <;> simp [req, hLen, hPos, capLe] at hSelf
+  grind [req, capLe]
 
 theorem rsObsCap_T_node_neg_nil
     {pos : List (Action × RSObs Action)}
     {neg : List Action}
     (hCap : rsObsCap .T (.node pos neg)) :
     neg = [] := by
-  unfold rsObsCap at hCap
-  dsimp [reqOfObs] at hCap
-  have hSelf : capLe
-      (req (decide (1 < pos.length) || (!neg.isEmpty && decide (0 < pos.length)))
-        (!neg.isEmpty)) .T := (capJoin_le hCap).1
-  cases neg with
-  | nil => rfl
-  | cons b bs =>
-      by_cases hLen : 1 < pos.length
-      · simp [req, hLen, capLe] at hSelf
-      · by_cases hPos : 0 < pos.length <;> simp [req, hLen, hPos, capLe] at hSelf
+  exact rsObsCap_S_node_neg_nil (capLe_trans hCap (by simp [capLe]))
 
 theorem rsObsCap_F_node_no_branching
     {pos : List (Action × RSObs Action)}
@@ -592,12 +577,7 @@ theorem rsObsCap_F_node_no_branching
   have hSelf : capLe
       (req (decide (1 < pos.length) || (!neg.isEmpty && decide (0 < pos.length)))
         (!neg.isEmpty)) .F := (capJoin_le hCap).1
-  by_cases hLen : 1 < pos.length
-  · simp [req, hLen, capLe] at hSelf
-    by_cases hNil : neg = []
-    · simp [hNil] at hSelf
-    · simp [hNil] at hSelf
-  · exact hLen
+  grind [req, capLe]
 
 /-- A failure observation with a positive branch has no refusal at that node. -/
 theorem rsObsCap_F_node_neg_nil_of_pos_ne_nil
@@ -619,29 +599,10 @@ theorem rsObsCap_T_node_no_branching
     {neg : List Action}
     (hCap : rsObsCap .T (.node pos neg)) :
     ¬ 1 < pos.length := by
-  unfold rsObsCap at hCap
-  dsimp [reqOfObs] at hCap
-  have hSelf : capLe
-      (req (decide (1 < pos.length) || (!neg.isEmpty && decide (0 < pos.length)))
-        (!neg.isEmpty)) .T := (capJoin_le hCap).1
-  by_cases hLen : 1 < pos.length
-  · simp [req, hLen, capLe] at hSelf
-    by_cases hNil : neg = []
-    · simp [hNil] at hSelf
-    · simp [hNil] at hSelf
-  · exact hLen
+  exact rsObsCap_F_node_no_branching (capLe_trans hCap (by simp [capLe]))
 
 theorem rsObsCapMonotone : ObsCapMonotone (Obs := RSObs Action) rsObsCap := by
   intro c d o hcd hObs
   exact capLe_trans hObs hcd
-
-/-- Threshold reading as concrete fragment intersection for this instance. -/
-theorem notPreorderAt_iff_intersects_fragment
-    (Diff : DiffSysRS Action Name (RSObs Action))
-    (N : Capability)
-    (p : CCS Action Name)
-    (Q : ProcSet Action Name) :
-    notPreorderAt rsObsCap Diff N p Q ↔ ∃ o, Diff p Q o ∧ rsObsCap N o := by
-  rfl
 
 end EqCheckingAbstractInterpretation.Ready
