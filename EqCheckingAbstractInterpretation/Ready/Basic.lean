@@ -404,7 +404,8 @@ inductive RSObs (Action : Type u) where
 /-- Combine a node's branching, refusal, and child capability requirements. -/
 def nodeRequirement (positiveCount : Nat) (hasNegative : Bool)
     (children : Capability) : Capability :=
-  capJoin (req (decide (1 < positiveCount)) hasNegative) children
+  capJoin (req (decide (1 < positiveCount) || (hasNegative && decide (0 < positiveCount)))
+    hasNegative) children
 
 mutual
 
@@ -554,13 +555,15 @@ theorem rsObsCap_S_node_neg_nil
     neg = [] := by
   unfold rsObsCap at hCap
   dsimp [reqOfObs] at hCap
-  have hSelf : capLe (req (decide (1 < pos.length)) (!neg.isEmpty)) .S := (capJoin_le hCap).1
+  have hSelf : capLe
+      (req (decide (1 < pos.length) || (!neg.isEmpty && decide (0 < pos.length)))
+        (!neg.isEmpty)) .S := (capJoin_le hCap).1
   cases neg with
   | nil => rfl
   | cons b bs =>
       by_cases hLen : 1 < pos.length
       · simp [req, hLen, capLe] at hSelf
-      · simp [req, hLen, capLe] at hSelf
+      · by_cases hPos : 0 < pos.length <;> simp [req, hLen, hPos, capLe] at hSelf
 
 theorem rsObsCap_T_node_neg_nil
     {pos : List (Action × RSObs Action)}
@@ -569,13 +572,15 @@ theorem rsObsCap_T_node_neg_nil
     neg = [] := by
   unfold rsObsCap at hCap
   dsimp [reqOfObs] at hCap
-  have hSelf : capLe (req (decide (1 < pos.length)) (!neg.isEmpty)) .T := (capJoin_le hCap).1
+  have hSelf : capLe
+      (req (decide (1 < pos.length) || (!neg.isEmpty && decide (0 < pos.length)))
+        (!neg.isEmpty)) .T := (capJoin_le hCap).1
   cases neg with
   | nil => rfl
   | cons b bs =>
       by_cases hLen : 1 < pos.length
       · simp [req, hLen, capLe] at hSelf
-      · simp [req, hLen, capLe] at hSelf
+      · by_cases hPos : 0 < pos.length <;> simp [req, hLen, hPos, capLe] at hSelf
 
 theorem rsObsCap_F_node_no_branching
     {pos : List (Action × RSObs Action)}
@@ -584,13 +589,30 @@ theorem rsObsCap_F_node_no_branching
     ¬ 1 < pos.length := by
   unfold rsObsCap at hCap
   dsimp [reqOfObs] at hCap
-  have hSelf : capLe (req (decide (1 < pos.length)) (!neg.isEmpty)) .F := (capJoin_le hCap).1
+  have hSelf : capLe
+      (req (decide (1 < pos.length) || (!neg.isEmpty && decide (0 < pos.length)))
+        (!neg.isEmpty)) .F := (capJoin_le hCap).1
   by_cases hLen : 1 < pos.length
   · simp [req, hLen, capLe] at hSelf
     by_cases hNil : neg = []
     · simp [hNil] at hSelf
     · simp [hNil] at hSelf
   · exact hLen
+
+/-- A failure observation with a positive branch has no refusal at that node. -/
+theorem rsObsCap_F_node_neg_nil_of_pos_ne_nil
+    {pos : List (Action × RSObs Action)}
+    {neg : List Action}
+    (hCap : rsObsCap .F (.node pos neg))
+    (hPos : pos ≠ []) : neg = [] := by
+  cases pos with
+  | nil => exact (hPos rfl).elim
+  | cons branch branches =>
+      cases neg with
+      | nil => rfl
+      | cons action negative =>
+          have hSelf := (capJoin_le hCap).1
+          simp [req, capLe] at hSelf
 
 theorem rsObsCap_T_node_no_branching
     {pos : List (Action × RSObs Action)}
@@ -599,7 +621,9 @@ theorem rsObsCap_T_node_no_branching
     ¬ 1 < pos.length := by
   unfold rsObsCap at hCap
   dsimp [reqOfObs] at hCap
-  have hSelf : capLe (req (decide (1 < pos.length)) (!neg.isEmpty)) .T := (capJoin_le hCap).1
+  have hSelf : capLe
+      (req (decide (1 < pos.length) || (!neg.isEmpty && decide (0 < pos.length)))
+        (!neg.isEmpty)) .T := (capJoin_le hCap).1
   by_cases hLen : 1 < pos.length
   · simp [req, hLen, capLe] at hSelf
     by_cases hNil : neg = []

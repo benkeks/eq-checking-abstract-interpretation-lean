@@ -938,8 +938,15 @@ lemma reqOfObs_branches_le
         simp only [List.map, childrenReq, branchCapabilities]
         exact capJoin_mono (hObservation branch (by simp))
           (ih (fun other hOther => hObservation other (by simp [hOther])))
-  simpa only [reqOfObs, branchesRequirement, List.length_map] using
-    (capJoin_mono (capLe_refl (req (decide (1 < branches.length)) (!negative.isEmpty))) hChildren)
+  simpa only [reqOfObs, branchesRequirement, nodeRequirement, List.length_map] using
+    (capJoin_mono (capLe_refl (req
+      (decide (1 < branches.length) || (!negative.isEmpty && decide (0 < branches.length)))
+      (!negative.isEmpty))) hChildren)
+
+example :
+    branchesRequirement ["b"] ([{
+      slot := 0, action := "c", capability := .T, competitors := (∅ : StateSet Nat)
+    }] : List (Branch String Nat)) = .RS := by decide
 
 /-- Boolean configuration membership is ordinary membership in the table. -/
 lemma configMem_iff (config : ReadyConfig State) (configs : List (ReadyConfig State)) :
@@ -2290,18 +2297,25 @@ lemma branchesRequirement_le_of_origins
           intro other hOther
           exact hOrigins other (by simp [hOther])
   have hShape : capLe
-      (req (decide (1 < branches.length)) (!negative.isEmpty))
-      (req (decide (1 < pos.length)) (!neg.isEmpty)) := by
-    have hSim : decide (1 < branches.length) = true →
-        decide (1 < pos.length) = true := by
-      intro hBranch
-      exact decide_eq_true_eq.mpr (Nat.lt_of_lt_of_le (decide_eq_true_eq.mp hBranch) hLength)
+      (req (decide (1 < branches.length) ||
+        (!negative.isEmpty && decide (0 < branches.length))) (!negative.isEmpty))
+      (req (decide (1 < pos.length) ||
+        (!neg.isEmpty && decide (0 < pos.length))) (!neg.isEmpty)) := by
     rw [hNegEmpty]
-    cases hBranch : decide (1 < branches.length) <;>
-      cases hPos : decide (1 < pos.length) <;>
+    have hSim :
+        (decide (1 < branches.length) || (!neg.isEmpty && decide (0 < branches.length))) = true →
+        (decide (1 < pos.length) || (!neg.isEmpty && decide (0 < pos.length))) = true := by
+      simp only [Bool.or_eq_true, Bool.and_eq_true, decide_eq_true_eq]
+      rintro (hMany | ⟨hNeg, hNonempty⟩)
+      · exact Or.inl (Nat.lt_of_lt_of_le hMany hLength)
+      · exact Or.inr ⟨hNeg, Nat.lt_of_lt_of_le hNonempty hLength⟩
+    cases hBranch : decide (1 < branches.length) ||
+        (!neg.isEmpty && decide (0 < branches.length)) <;>
+      cases hPos : decide (1 < pos.length) ||
+        (!neg.isEmpty && decide (0 < pos.length)) <;>
       cases hRefusal : !neg.isEmpty <;>
       simp [req, capLe, hBranch, hPos] at hSim ⊢
-  simpa only [branchesRequirement, reqOfObs] using capJoin_mono hShape hChildren
+  simpa only [branchesRequirement, reqOfObs, nodeRequirement] using capJoin_mono hShape hChildren
 
 /-- A finite partition satisfying the semantic node bounds produces a cofinal table entry. -/
 lemma assignment_node_cofinal
