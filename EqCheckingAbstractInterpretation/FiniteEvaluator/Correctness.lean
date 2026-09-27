@@ -4,7 +4,7 @@ import Mathlib.Order.FixedPoints
 
 namespace EqCheckingAbstractInterpretation.FiniteEvaluator
 
-universe u
+universe u v
 
 variable {Element : Type u} [DecidableEq Element]
 
@@ -368,5 +368,45 @@ lemma subset_mem_powerset (elements : List Element) (subset : FSet Element)
                     (Finset.mem_insert.mp (by simpa only [List.toFinset_cons] using hSubset (Finset.mem_erase.mp hElement).2)).resolve_left (Finset.mem_erase.mp hElement).1
             change subset ∈ powerset tail ++ (powerset tail).map (fun set => insert head set)
             grind
+
+/-- Boolean configuration membership reflects list membership. -/
+lemma configMem_iff {State : Type u} [DecidableEq State]
+    (config : StateConfig State) (configs : List (StateConfig State)) :
+    configMem config configs = true ↔ config ∈ configs := by
+  induction configs with
+  | nil => simp [configMem]
+  | cons entry configs ih =>
+      simp only [configMem, Bool.or_eq_true, decide_eq_true_eq, List.mem_cons, ih]
+      grind
+
+/-- Shifted competitors come from one transition row. -/
+lemma mem_shift_iff {Action : Type u} {State : Type v}
+        [DecidableEq Action] [DecidableEq State]
+        (lts : CCS.FiniteLTS Action State) (competitors : FSet State)
+        (action : Action) (target : State) :
+        target ∈ shift lts competitors action ↔
+            ∃ competitor ∈ competitors, target ∈ lts.next competitor action := by
+    simp [shift]
+
+/-- The finite configuration universe is the represented state powerset. -/
+lemma mem_configUniverse_iff {Action : Type u} {State : Type v}
+        [DecidableEq Action] [DecidableEq State]
+        (lts : CCS.FiniteLTS Action State) (state : State) (competitors : FSet State) :
+        (state, competitors) ∈ configUniverse lts ↔
+            state ∈ lts.states ∧ competitors ⊆ lts.states.toFinset := by
+    constructor
+    · intro hConfig
+      rw [configUniverse, List.mem_flatMap] at hConfig
+      rcases hConfig with ⟨source, hSource, hConfig⟩
+      rw [List.mem_map] at hConfig
+      rcases hConfig with ⟨candidate, hCandidate, hEqual⟩
+      have hCandidateSubset := powerset_member_subset lts.states candidate hCandidate
+      cases hEqual
+      exact ⟨hSource, hCandidateSubset⟩
+    · rintro ⟨hState, hCompetitors⟩
+      rw [configUniverse, List.mem_flatMap]
+      refine ⟨state, hState, ?_⟩
+      rw [List.mem_map]
+      exact ⟨competitors, subset_mem_powerset lts.states competitors hCompetitors, rfl⟩
 
 end EqCheckingAbstractInterpretation.FiniteEvaluator

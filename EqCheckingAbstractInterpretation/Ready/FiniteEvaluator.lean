@@ -15,19 +15,17 @@ variable {Action : Type u} {State : Type v}
   [DecidableEq Action] [DecidableEq State]
 
 abbrev StateSet (State : Type v) := FSet State
-abbrev ReadyConfig (State : Type v) := State × StateSet State
+abbrev ReadyConfig (State : Type v) := FiniteEvaluator.StateConfig State
 abbrev CapabilityConfig (State : Type v) := ReadyConfig State × Capability
 abbrev CapabilityTable (State : Type v) := List (CapabilityConfig State)
 
 /-- Shift a finite competitor set through one action. -/
-def shift (lts : CCS.FiniteLTS Action State) (competitors : StateSet State)
+abbrev shift (lts : CCS.FiniteLTS Action State) (competitors : StateSet State)
     (action : Action) : StateSet State :=
-  competitors.biUnion (fun state => (lts.next state action).toFinset)
+  FiniteEvaluator.shift lts competitors action
 
-def configMem (config : ReadyConfig State) : List (ReadyConfig State) → Bool
-  | [] => false
-  | (state, competitors) :: configs =>
-    decide (config.1 = state ∧ config.2 = competitors) || configMem config configs
+abbrev configMem (config : ReadyConfig State) (configs : List (ReadyConfig State)) : Bool :=
+  FiniteEvaluator.configMem config configs
 
 def configInsert (config : ReadyConfig State) (configs : List (ReadyConfig State)) :
     List (ReadyConfig State) :=
@@ -145,8 +143,7 @@ def branchCapabilities : List (Branch Action State) → Capability
   | branch :: branches => capJoin branch.capability (branchCapabilities branches)
 
 def branchesRequirement (negative : List Action) (branches : List (Branch Action State)) : Capability :=
-  capJoin (req (decide (1 < branches.length)) (!negative.isEmpty))
-    (branchCapabilities branches)
+  nodeRequirement branches.length (!negative.isEmpty) (branchCapabilities branches)
 
 /-- Verify the negative-group obligation of a finite Ready partition. -/
 def negativeAssignmentValid (lts : CCS.FiniteLTS Action State) (competitors : List State)
@@ -200,9 +197,8 @@ def configSuccessors (lts : CCS.FiniteLTS Action State) (config : ReadyConfig St
       (lts.next config.1 action).map (fun successor => (successor, shift lts competitors action))))
 
 /-- All state-and-competitor configurations expressible by the finite LTS. -/
-def configUniverse (lts : CCS.FiniteLTS Action State) : List (ReadyConfig State) :=
-  lts.states.flatMap (fun state =>
-    (powerset lts.states).map (fun competitors => (state, competitors)))
+abbrev configUniverse (lts : CCS.FiniteLTS Action State) : List (ReadyConfig State) :=
+  FiniteEvaluator.configUniverse lts
 
 def expandConfigs (lts : CCS.FiniteLTS Action State) (configs : List (ReadyConfig State)) :
     List (ReadyConfig State) :=

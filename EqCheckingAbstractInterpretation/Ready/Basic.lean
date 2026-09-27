@@ -401,6 +401,11 @@ inductive RSObs (Action : Type u) where
   | node : List (Action × RSObs Action) → List Action → RSObs Action
   deriving Repr
 
+/-- Combine a node's branching, refusal, and child capability requirements. -/
+def nodeRequirement (positiveCount : Nat) (hasNegative : Bool)
+    (children : Capability) : Capability :=
+  capJoin (req (decide (1 < positiveCount)) hasNegative) children
+
 mutual
 
 /-- Aggregate child capability requirements from positive branches. -/
@@ -412,8 +417,7 @@ def childrenReq : List (Action × RSObs Action) → Capability
 def reqOfObs : RSObs Action → Capability
   | .tt => .T
   | .node pos neg =>
-      let selfReq : Capability := req (decide (1 < pos.length)) (!neg.isEmpty)
-      capJoin selfReq (childrenReq pos)
+  nodeRequirement pos.length (!neg.isEmpty) (childrenReq pos)
 
 end
 

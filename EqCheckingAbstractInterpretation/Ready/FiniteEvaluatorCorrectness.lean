@@ -15,33 +15,6 @@ namespace FiniteLTS
 variable {Action : Type u} {State : Type v}
   [DecidableEq Action] [DecidableEq State]
 
-/-- Membership in a shifted competitor set is precisely membership in one transition row. -/
-lemma mem_shift_iff (lts : CCS.FiniteLTS Action State) (competitors : StateSet State)
-    (action : Action) (target : State) :
-    target ∈ shift lts competitors action ↔
-      ∃ competitor ∈ competitors, target ∈ lts.next competitor action := by
-  simp [shift]
-
-/-- The finite configuration universe is exactly the represented state powerset. -/
-lemma mem_configUniverse_iff (lts : CCS.FiniteLTS Action State)
-    (state : State) (competitors : StateSet State) :
-    (state, competitors) ∈ configUniverse lts ↔
-      state ∈ lts.states ∧ competitors ⊆ lts.states.toFinset := by
-  constructor
-  · intro hConfig
-    rw [configUniverse, List.mem_flatMap] at hConfig
-    rcases hConfig with ⟨source, hSource, hConfig⟩
-    rw [List.mem_map] at hConfig
-    rcases hConfig with ⟨candidate, hCandidate, hEqual⟩
-    have hCandidateSubset := powerset_member_subset lts.states candidate hCandidate
-    cases hEqual
-    exact ⟨hSource, hCandidateSubset⟩
-  · rintro ⟨hState, hCompetitors⟩
-    rw [configUniverse, List.mem_flatMap]
-    refine ⟨state, hState, ?_⟩
-    rw [List.mem_map]
-    exact ⟨competitors, subset_mem_powerset lts.states competitors hCompetitors, rfl⟩
-
 /-- The executable competitor list enumerates exactly the listed finite competitors. -/
 lemma mem_competitorsOf_iff (lts : CCS.FiniteLTS Action State)
     (competitors : StateSet State) (state : State) :
@@ -971,9 +944,7 @@ lemma reqOfObs_branches_le
 /-- Boolean configuration membership is ordinary membership in the table. -/
 lemma configMem_iff (config : ReadyConfig State) (configs : List (ReadyConfig State)) :
     configMem config configs = true ↔ config ∈ configs := by
-  induction configs with
-  | nil => simp [configMem]
-  | cons entry configs ih => simp only [configMem, Bool.or_eq_true, decide_eq_true_eq, ih, List.mem_cons]; grind
+  exact FiniteEvaluator.configMem_iff config configs
 
 /-- Configuration insertion adds exactly its argument when it was absent. -/
 lemma mem_configInsert_iff (config entry : ReadyConfig State)
@@ -1423,7 +1394,7 @@ lemma length_flatMap_map
 /-- The global configuration enumeration has the query expansion bound as its length. -/
 lemma length_configUniverse (lts : CCS.FiniteLTS Action State) :
     (configUniverse lts).length = lts.states.length * 2 ^ lts.states.length := by
-  unfold configUniverse
+  unfold configUniverse FiniteEvaluator.configUniverse
   rw [length_flatMap_map]
   exact congrArg (fun length => lts.states.length * length) (length_powerset lts.states)
 
@@ -2171,7 +2142,7 @@ lemma refusal_only_step_cofinal
   let finiteCapability := branchesRequirement negative ([] : List (Branch Action State))
   have hFiniteEq : finiteCapability = req false (!neg.isEmpty) := by
     cases hEmpty : neg.isEmpty <;>
-      simp [finiteCapability, branchesRequirement, branchCapabilities, hNegEmpty, hEmpty,
+      simp [finiteCapability, branchesRequirement, nodeRequirement, branchCapabilities, hNegEmpty, hEmpty,
         req, capJoin]
   have hMark : marksSet lts
       ((capabilityTable lts root initial).toFinset : Set (CapabilityConfig State))

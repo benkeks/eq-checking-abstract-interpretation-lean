@@ -14,52 +14,19 @@ namespace FiniteLTS
 variable {Action : Type u} {State : Type v}
   [DecidableEq Action] [DecidableEq State]
 
-/-- Boolean marker-table membership reflects ordinary list membership. -/
-lemma configMem_iff (config : Config State) (marked : MarkerTable State) :
-    configMem config marked = true ↔ config ∈ marked := by
-  induction marked with
-  | nil => simp [configMem]
-  | cons entry marked ih => simp only [configMem, Bool.or_eq_true, decide_eq_true_eq, List.mem_cons, ih]; grind
-
-/-- Membership in a shifted competitor set comes from one competitor transition row. -/
-lemma mem_shift_iff (lts : CCS.FiniteLTS Action State) (competitors : StateSet State)
-    (action : Action) (target : State) :
-    target ∈ shift lts competitors action ↔
-      ∃ competitor ∈ competitors, target ∈ lts.next competitor action := by
-  simp [shift]
-
-/-- The executable configuration enumeration is exactly the finite state powerset. -/
-lemma mem_configs_iff (lts : CCS.FiniteLTS Action State)
-    (state : State) (competitors : StateSet State) :
-    (state, competitors) ∈ configs lts ↔
-      state ∈ lts.states ∧ competitors ⊆ lts.states.toFinset := by
-  constructor
-  · intro hConfig
-    rw [configs, List.mem_flatMap] at hConfig
-    rcases hConfig with ⟨source, hSource, hConfig⟩
-    rw [List.mem_map] at hConfig
-    rcases hConfig with ⟨candidate, hCandidate, hEqual⟩
-    have hCandidateSubset := powerset_member_subset lts.states candidate hCandidate
-    cases hEqual
-    exact ⟨hSource, hCandidateSubset⟩
-  · rintro ⟨hState, hCompetitors⟩
-    rw [configs, List.mem_flatMap]
-    refine ⟨state, hState, ?_⟩
-    rw [List.mem_map]
-    exact ⟨competitors, subset_mem_powerset lts.states competitors hCompetitors, rfl⟩
 
 lemma successors_closed (lts : CCS.FiniteLTS Action State)
     (hNextClosed : ∀ state action target, state ∈ lts.states →
       target ∈ lts.next state action → target ∈ lts.states)
     (config successor : Config State)
-    (hConfig : config ∈ configs lts)
+    (hConfig : config ∈ configUniverse lts)
     (hSuccessor : successor ∈ successors lts config) :
-    successor ∈ configs lts := by
+    successor ∈ configUniverse lts := by
   rcases config with ⟨state, competitors⟩
-  rcases (mem_configs_iff lts state competitors).mp hConfig with ⟨hState, hCompetitors⟩
+  rcases (FiniteEvaluator.mem_configUniverse_iff lts state competitors).mp hConfig with ⟨hState, hCompetitors⟩
   simp only [successors, List.mem_flatMap, List.mem_map] at hSuccessor
   rcases hSuccessor with ⟨action, _, target, hTarget, rfl⟩
-  apply (mem_configs_iff lts target (shift lts competitors action)).mpr
+  apply (FiniteEvaluator.mem_configUniverse_iff lts target (shift lts competitors action)).mpr
   constructor
   · exact hNextClosed state action target hState hTarget
   · intro next hNext
@@ -79,8 +46,8 @@ private lemma powerset_length (states : List State) :
     omega
 
 private lemma configs_length (lts : CCS.FiniteLTS Action State) :
-    (configs lts).length = lts.states.length * 2 ^ lts.states.length := by
-  simp [configs, List.length_flatMap, powerset_length]
+    (configUniverse lts).length = lts.states.length * 2 ^ lts.states.length := by
+  simp [configUniverse, FiniteEvaluator.configUniverse, List.length_flatMap, powerset_length]
 
 private lemma reachUntil_contains (lts : CCS.FiniteLTS Action State)
     (fuel : Nat) (seen : MarkerTable State) (config : Config State)
@@ -183,13 +150,13 @@ private lemma reachUntil_successor_closed (lts : CCS.FiniteLTS Action State)
 private lemma reachableConfigs_spec (lts : CCS.FiniteLTS Action State)
     (hNextClosed : ∀ state action target, state ∈ lts.states →
       target ∈ lts.next state action → target ∈ lts.states)
-    (initial : Config State) (hInitial : initial ∈ configs lts) :
-    (∀ config ∈ reachableConfigs lts initial, config ∈ configs lts) ∧
+    (initial : Config State) (hInitial : initial ∈ configUniverse lts) :
+    (∀ config ∈ reachableConfigs lts initial, config ∈ configUniverse lts) ∧
     initial ∈ reachableConfigs lts initial ∧
     (∀ config ∈ reachableConfigs lts initial,
       ∀ successor ∈ successors lts config,
         successor ∈ reachableConfigs lts initial) := by
-  let domain := (configs lts).toFinset
+  let domain := (configUniverse lts).toFinset
   have hDomainClosed : ∀ config ∈ domain, ∀ successor ∈ successors lts config,
       successor ∈ domain := by
     intro config hConfig successor hSuccessor
@@ -197,7 +164,7 @@ private lemma reachableConfigs_spec (lts : CCS.FiniteLTS Action State)
       (List.mem_toFinset.mp hConfig) hSuccessor)
   have hBound : domain.card ≤ lts.states.length * 2 ^ lts.states.length := by
     calc
-      domain.card ≤ (configs lts).length := List.toFinset_card_le (configs lts)
+      domain.card ≤ (configUniverse lts).length := List.toFinset_card_le (configUniverse lts)
       _ = _ := configs_length lts
   have hEnough : domain.card - ([initial].toFinset).card <
       lts.states.length * 2 ^ lts.states.length + 1 := by omega
@@ -258,13 +225,13 @@ lemma marks_sound
     (marked : MarkerTable State)
     (state : State)
     (competitors : StateSet State)
-    (hConfig : (state, competitors) ∈ configs lts)
+    (hConfig : (state, competitors) ∈ configUniverse lts)
     (hMarked : marks lts marked state competitors = true)
     (hSound : ∀ successor shifted,
       configMem (successor, shifted) marked = true →
         AbstractDiff env (decode successor) (CCS.FiniteLTS.decodeSet decode shifted)) :
     AbstractDiff env (decode state) (CCS.FiniteLTS.decodeSet decode competitors) := by
-  rcases (mem_configs_iff lts state competitors).mp hConfig with ⟨_, hCompetitors⟩
+  rcases (FiniteEvaluator.mem_configUniverse_iff lts state competitors).mp hConfig with ⟨_, hCompetitors⟩
   simp only [marks, Bool.or_eq_true, decide_eq_true_eq] at hMarked
   rcases hMarked with hEmpty | hStep
   · subst competitors
@@ -302,7 +269,7 @@ lemma saturateN_sound
     (state : State)
     (competitors : StateSet State)
     (hMember : (state, competitors) ∈
-      saturateN (configs lts) configMem
+      saturateN (configUniverse lts) configMem
         (fun marked config => marks lts marked config.1 config.2) count) :
     AbstractDiff env (decode state) (CCS.FiniteLTS.decodeSet decode competitors) := by
   induction count generalizing state competitors with
@@ -313,7 +280,7 @@ lemma saturateN_sound
       rcases hMember with hPrevious | hNew
       · exact ih state competitors hPrevious
       · exact marks_sound lts env decode realizes
-          (saturateN (configs lts) configMem
+          (saturateN (configUniverse lts) configMem
             (fun marked config => marks lts marked config.1 config.2) count)
           state competitors hNew.1 hNew.2.2
           (fun successor shifted hMember =>
@@ -331,7 +298,7 @@ lemma abstractDiff_sound
     (hAbstractDiff : abstractDiff lts state competitors = true) :
     AbstractDiff env (decode state) (CCS.FiniteLTS.decodeSet decode competitors) := by
   unfold abstractDiff markerTable saturate at hAbstractDiff
-  exact saturateN_sound lts env decode realizes (configs lts).length state competitors
+  exact saturateN_sound lts env decode realizes (configUniverse lts).length state competitors
     ((configMem_iff (state, competitors) _).mp hAbstractDiff)
 
 /-- Proof-facing form of one Trace marker rule. -/
@@ -367,10 +334,9 @@ lemma marksSet_mono (lts : CCS.FiniteLTS Action State) {left right : Set (Config
 /-- The executable Trace marker table denotes the generic least marker table. -/
 theorem markerTable_toFinset_eq_tableLfp (lts : CCS.FiniteLTS Action State) :
     ((markerTable lts).toFinset : Set (Config State)) =
-      tableLfp (configs lts).toFinset (marksSet lts)
+      tableLfp (configUniverse lts).toFinset (marksSet lts)
         (fun hSubset config hMarks => marksSet_mono lts hSubset config hMarks) := by
-  unfold markerTable
-  exact saturate_toFinset_eq_tableLfp (configs lts) configMem
+  exact saturate_toFinset_eq_tableLfp (configUniverse lts) configMem
     (fun marked config => marks lts marked config.1 config.2) (marksSet lts)
     (fun config marked => configMem_iff config marked)
     (fun marked config => marks_iff_marksSet lts marked config.1 config.2)
@@ -442,10 +408,10 @@ theorem abstractDiffReachable_eq_abstractDiff (lts : CCS.FiniteLTS Action State)
     abstractDiffReachable lts state competitors = abstractDiff lts state competitors := by
   let query : Config State := (state, competitors)
   let relevant := reachableConfigs lts query
-  have hQuery : query ∈ configs lts :=
-    (mem_configs_iff lts state competitors).mpr ⟨hState, hCompetitors⟩
+  have hQuery : query ∈ configUniverse lts :=
+    (FiniteEvaluator.mem_configUniverse_iff lts state competitors).mpr ⟨hState, hCompetitors⟩
   obtain ⟨hSubset, hInitial, hClosed⟩ := reachableConfigs_spec lts hNextClosed query hQuery
-  have hRelevantSubset : relevant.toFinset ⊆ (configs lts).toFinset := by
+  have hRelevantSubset : relevant.toFinset ⊆ (configUniverse lts).toFinset := by
     intro config hConfig
     exact List.mem_toFinset.mpr (hSubset config (List.mem_toFinset.mp hConfig))
   have hRelevantClosed : ∀ config ∈ relevant.toFinset,
@@ -467,26 +433,26 @@ theorem abstractDiffReachable_eq_abstractDiff (lts : CCS.FiniteLTS Action State)
       (fun marked config => marks lts marked config.1 config.2)).toFinset : Set (Config State)) ↔
     query ∈ ((markerTable lts).toFinset : Set (Config State))
   rw [hLocalTable, markerTable_toFinset_eq_tableLfp]
-  exact (tableLfp_restrict lts (configs lts).toFinset relevant.toFinset
+  exact (tableLfp_restrict lts (configUniverse lts).toFinset relevant.toFinset
     hRelevantSubset hRelevantClosed query (List.mem_toFinset.mpr hInitial)).symm
 
 /-- A configuration satisfying the Trace marker rule belongs to the final marker table. -/
 lemma markerTable_closed (lts : CCS.FiniteLTS Action State)
     (state : State) (competitors : StateSet State)
-    (hConfig : (state, competitors) ∈ configs lts)
+    (hConfig : (state, competitors) ∈ configUniverse lts)
     (hMarked : marks lts (markerTable lts) state competitors = true) :
     configMem (state, competitors) (markerTable lts) = true := by
   apply (configMem_iff (state, competitors) (markerTable lts)).mpr
-  have hConfigSet : (state, competitors) ∈ ((configs lts).toFinset : Set (Config State)) :=
+  have hConfigSet : (state, competitors) ∈ ((configUniverse lts).toFinset : Set (Config State)) :=
     by simpa using hConfig
   have hMarkedSet : marksSet lts ((markerTable lts).toFinset : Set (Config State))
       (state, competitors) :=
     (marks_iff_marksSet lts (markerTable lts) state competitors).mp hMarked
   rw [markerTable_toFinset_eq_tableLfp lts] at hMarkedSet
   have hLfpMember : (state, competitors) ∈
-      tableLfp (configs lts).toFinset (marksSet lts)
+      tableLfp (configUniverse lts).toFinset (marksSet lts)
         (fun hSubset config hMarks => marksSet_mono lts hSubset config hMarks) := by
-    rw [← tableStep_tableLfp (configs lts).toFinset (marksSet lts)
+    rw [← tableStep_tableLfp (configUniverse lts).toFinset (marksSet lts)
       (fun hSubset config hMarks => marksSet_mono lts hSubset config hMarks)]
     exact Or.inr ⟨hConfigSet, hMarkedSet⟩
   rw [← markerTable_toFinset_eq_tableLfp lts] at hLfpMember
@@ -524,7 +490,7 @@ lemma markerPredicate_prefixpoint
       intro competitor hCompetitor
       exact hEmpty (decode competitor) ⟨competitor, hCompetitor, rfl⟩
     apply markerTable_closed lts state competitors
-      ((mem_configs_iff lts state competitors).mpr ⟨hState, hCompetitors⟩)
+      ((FiniteEvaluator.mem_configUniverse_iff lts state competitors).mpr ⟨hState, hCompetitors⟩)
     simp [marks, hCompetitorsEmpty]
   · rcases realizes.next_complete state action successorProcess hState hDeriv with
       ⟨successor, hSuccessorState, hSuccessor, hDecodeSuccessor⟩
@@ -544,7 +510,7 @@ lemma markerPredicate_prefixpoint
       hNext successor (shift lts competitors action) hSuccessorState hShifted
         hDecodeSuccessor.symm hDecodeShift.symm
     apply markerTable_closed lts state competitors
-      ((mem_configs_iff lts state competitors).mpr ⟨hState, hCompetitors⟩)
+      ((FiniteEvaluator.mem_configUniverse_iff lts state competitors).mpr ⟨hState, hCompetitors⟩)
     simp only [marks, Bool.or_eq_true]
     exact Or.inr (List.any_eq_true.mpr ⟨action, realizes.action_complete action,
       List.any_eq_true.mpr ⟨successor, hSuccessor, hPrevious⟩⟩)
