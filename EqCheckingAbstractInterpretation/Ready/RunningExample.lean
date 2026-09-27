@@ -1,12 +1,16 @@
 import EqCheckingAbstractInterpretation.Ready.Correctness
 import EqCheckingAbstractInterpretation.Ready.ConcreteDifference
 import EqCheckingAbstractInterpretation.Ready.FiniteEvaluatorCorrectness
+import EqCheckingAbstractInterpretation.RunningExample
 
 namespace EqCheckingAbstractInterpretation.Ready.RunningExample
 
 open EqCheckingAbstractInterpretation.CCS
 open EqCheckingAbstractInterpretation.Ready
 open EqCheckingAbstractInterpretation.Trace
+open EqCheckingAbstractInterpretation.RunningExample
+
+set_option linter.constructorNameAsVariable false
 
 /-!
 ## Running Example: Abstract RS Differences
@@ -31,38 +35,6 @@ Key RS results:
   `a` and `b`, while the two right-hand successors of `PA` split the failure:
   `b0` cannot do `a`, and `PA` cannot do `b`.
 -/
-
--- ---------------------------------------------------------------------------
--- Action and name types
--- ---------------------------------------------------------------------------
-
--- For the example, we will use one-letter lower-case constructor names,
--- to align with the paper. This naturally triigers some warnings, which we surpress.
--- (But you don't want to import these names into wider formalizations...)
-set_option linter.constructorNameAsVariable false
-
-inductive RunAct where
-  | a
-  | b
-  deriving DecidableEq, Repr
-
-inductive RunName where
-  | PA
-  | PB
-  deriving DecidableEq, Repr
-
-abbrev RunProc := CCS RunAct RunName
-
-def PA : RunProc := .var .PA
-def PB : RunProc := .var .PB
-
-/-- `PA ↦ a.PA + a.b.0`, `PB ↦ a.(PB + b.0)` -/
-def runEnv : Env RunAct RunName
-  | .PA => .choice (.prefix .a (.var .PA)) (.prefix .a (.prefix .b .zero))
-  | .PB => .prefix .a (.choice (.var .PB) (.prefix .b .zero))
-
-def b0   : RunProc := .prefix .b .zero
-def PBb0 : RunProc := .choice (.var .PB) (.prefix .b .zero)
 
 -- ---------------------------------------------------------------------------
 -- Derivative facts
@@ -179,21 +151,6 @@ def obs_a_split_ab : RSObs RunAct := .node [(.a, obs_split_ab)] []
 -- ---------------------------------------------------------------------------
 
 open FiniteLTS
-
-/-- The finite transition table induced by `runEnv`. -/
-def runNext : RunProc → RunAct → List RunProc
-  | .var .PA, .a => [PA, b0]
-  | .var .PB, .a => [PBb0]
-  | .choice (.var .PB) (.prefix .b .zero), .a => [PBb0]
-  | .choice (.var .PB) (.prefix .b .zero), .b => [.zero]
-  | .prefix .b .zero, .b => [.zero]
-  | _, _ => []
-
-/-- The derivative-closed finite fragment induced by `runEnv`. -/
-def runLTS : CCS.FiniteLTS RunAct RunProc where
-  actions := [.a, .b]
-  states := [PA, PB, PBb0, b0, .zero]
-  next := runNext
 
 /-- The executable table enumerates precisely the derivatives of its listed CCS states. -/
 theorem runLTS_realizes : CCS.FiniteLTS.Realizes runLTS runEnv id := by

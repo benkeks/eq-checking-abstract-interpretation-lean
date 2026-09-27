@@ -1,11 +1,13 @@
 import EqCheckingAbstractInterpretation.Trace.Correctness
 import EqCheckingAbstractInterpretation.Trace.FiniteEvaluator
 import EqCheckingAbstractInterpretation.Trace.FiniteEvaluatorCorrectness
+import EqCheckingAbstractInterpretation.RunningExample
 
 namespace EqCheckingAbstractInterpretation.Trace.RunningExample
 
 open EqCheckingAbstractInterpretation.CCS
 open EqCheckingAbstractInterpretation.Trace
+open EqCheckingAbstractInterpretation.RunningExample
 
 /-!
 ## Running Example: Abstract Trace Differences
@@ -24,32 +26,6 @@ Key results:
 2. `not_abstractDiff_b0_PBb0` : marker absent for `(b0, {PBb0})`   → b0 ≤ PBb0
 3. `not_abstractDiff_PA_PB`   : marker absent for `(PA,  {PB})`    → PA ≡ PB
 -/
-
-/-- Actions: `a` and `b`. -/
-inductive RunAct where
-  | a
-  | b
-  deriving DecidableEq
-
-/-- Process names: `PA` and `PB`. -/
-inductive RunName where
-  | PA
-  | PB
-  deriving DecidableEq
-
-abbrev RunProc := CCS RunAct RunName
-
-/-- Environment:
-  `PA ↦ a.PA + a.b.0`
-  `PB ↦ a.(PB + b.0)` -/
-def runEnv : Env RunAct RunName
-  | .PA => .choice (.prefix .a (.var .PA)) (.prefix .a (.prefix .b .zero))
-  | .PB => .prefix .a (.choice (.var .PB) (.prefix .b .zero))
-
-def PA   : RunProc := .var .PA
-def PB   : RunProc := .var .PB
-def b0   : RunProc := .prefix .b .zero
-def PBb0 : RunProc := .choice (.var .PB) (.prefix .b .zero)
 
 -- ---------------------------------------------------------------------------
 -- Manual analysis of the finite traces
@@ -149,21 +125,6 @@ theorem PA_le_PB : TracePreorder runEnv PA PB := by
 -- ---------------------------------------------------------------------------
 
 open FiniteLTS
-
-/-- The finite transition table induced by `runEnv`. -/
-def runNext : RunProc → RunAct → List RunProc
-  | .var .PA, .a => [PA, b0]
-  | .var .PB, .a => [PBb0]
-  | .choice (.var .PB) (.prefix .b .zero), .a => [PBb0]
-  | .choice (.var .PB) (.prefix .b .zero), .b => [.zero]
-  | .prefix .b .zero, .b => [.zero]
-  | _, _ => []
-
-/-- The derivative-closed finite fragment induced by `runEnv`. -/
-def runLTS : CCS.FiniteLTS RunAct RunProc where
-  actions := [.a, .b]
-  states := [PA, PB, PBb0, b0, .zero]
-  next := runNext
 
 /-- Executable marker query for the running example. -/
 def runAbstractDiff (state : RunProc) (competitors : StateSet RunProc) : Bool :=
