@@ -44,7 +44,10 @@ lemma configSuccessors_subset_configUniverse
     ∀ successor, successor ∈ configSuccessors lts config → successor ∈ configUniverse lts := by
   intro successor hSuccessor
   rcases (mem_configUniverse_iff lts config.1 config.2).mp hConfig with ⟨hState, _⟩
-  rw [configSuccessors, List.mem_flatMap] at hSuccessor
+  by_cases hSelf : config.1 ∈ config.2
+  · simp [configSuccessors, hSelf] at hSuccessor
+  simp only [configSuccessors, hSelf, ↓reduceIte] at hSuccessor
+  rw [List.mem_flatMap] at hSuccessor
   rcases hSuccessor with ⟨selected, hSelected, hActions⟩
   rw [List.mem_flatMap] at hActions
   rcases hActions with ⟨action, _, hTargets⟩
@@ -74,9 +77,11 @@ lemma mem_configSuccessors
     (target : State)
     (hSelected : selected ∈ powerset (competitorsOf lts config.2))
     (hAction : action ∈ lts.actions)
-    (hTarget : target ∈ lts.next config.1 action) :
+    (hTarget : target ∈ lts.next config.1 action)
+    (hNotSelf : config.1 ∉ config.2) :
     (target, shift lts selected action) ∈ configSuccessors lts config := by
-  rw [configSuccessors, List.mem_flatMap]
+  simp only [configSuccessors, hNotSelf, ↓reduceIte]
+  rw [List.mem_flatMap]
   refine ⟨selected, hSelected, ?_⟩
   rw [List.mem_flatMap]
   refine ⟨action, hAction, ?_⟩
@@ -1470,31 +1475,35 @@ lemma mem_queryConfigs_of_configSuccessor
     (target : State)
     (hSelected : selected ∈ powerset (competitorsOf lts config.2))
     (hAction : action ∈ lts.actions)
-    (hTarget : target ∈ lts.next config.1 action) :
+    (hTarget : target ∈ lts.next config.1 action)
+    (hNotSelf : config.1 ∉ config.2) :
     (target, shift lts selected action) ∈ queryConfigs lts state competitors := by
   apply queryConfigs_closed lts env decode realizes state competitors hState hCompetitors config
     (target, shift lts selected action) hConfig
-  exact mem_configSuccessors lts config selected action target hSelected hAction hTarget
+  exact mem_configSuccessors lts config selected action target hSelected hAction hTarget hNotSelf
 
-omit [DecidableEq State] in
 /-- Capability-domain enumeration contains exactly each query configuration at each capability. -/
 lemma mem_capabilityConfigs_iff
     (configs : List (ReadyConfig State))
     (config : ReadyConfig State)
     (capability : Capability) :
     (config, capability) ∈ capabilityConfigs configs ↔
-      config ∈ configs ∧ capability ∈ capabilities := by
+      config ∈ configs ∧ capability ∈ capabilities ∧ config.1 ∉ config.2 := by
   constructor
   · intro hMember
     rw [capabilityConfigs, List.mem_flatMap] at hMember
     rcases hMember with ⟨source, hSource, hCapability⟩
+    by_cases hSelf : source.1 ∈ source.2
+    · simp [hSelf] at hCapability
+    simp only [hSelf, ↓reduceIte] at hCapability
     rw [List.mem_map] at hCapability
     rcases hCapability with ⟨candidate, hCandidate, hEqual⟩
     cases hEqual
-    exact ⟨hSource, hCandidate⟩
-  · rintro ⟨hConfig, hCapability⟩
+    exact ⟨hSource, hCandidate, hSelf⟩
+  · rintro ⟨hConfig, hCapability, hNotSelf⟩
     rw [capabilityConfigs, List.mem_flatMap]
     refine ⟨config, hConfig, ?_⟩
+    simp only [hNotSelf, ↓reduceIte]
     exact List.mem_map.mpr ⟨capability, hCapability, rfl⟩
 
 /-- Boolean capability-table membership is ordinary membership in the table. -/
@@ -1915,6 +1924,7 @@ lemma capabilityTable_closed
     (capability : Capability)
     (hConfig : config ∈ queryConfigs lts state competitors)
     (hCapability : capability ∈ capabilities)
+    (hNotSelf : config.1 ∉ config.2)
     (hMarks : marks lts (capabilityTable lts state competitors) config capability = true) :
     capabilityConfigMem (config, capability) (capabilityTable lts state competitors) = true := by
   apply (capabilityConfigMem_iff (config, capability) (capabilityTable lts state competitors)).mpr
@@ -1922,7 +1932,7 @@ lemma capabilityTable_closed
       ((capabilityConfigs (queryConfigs lts state competitors)).toFinset :
         Set (CapabilityConfig State)) := by
     simpa using (mem_capabilityConfigs_iff (queryConfigs lts state competitors) config capability).mpr
-      ⟨hConfig, hCapability⟩
+      ⟨hConfig, hCapability, hNotSelf⟩
   have hMarked : marksSet lts
       ((capabilityTable lts state competitors).toFinset : Set (CapabilityConfig State))
       config capability :=
@@ -2056,6 +2066,7 @@ lemma refusal_only_step_cofinal
     (state : State) (competitors : StateSet State) (neg : List Action)
     (hState : state ∈ lts.states)
     (hConfig : (state, competitors) ∈ queryConfigs lts root initial)
+    (hNotSelf : state ∉ competitors)
     (Q : ProcSet Action Name)
     (hSubset : ∀ process, CCS.FiniteLTS.decodeSet decode competitors process → Q process)
     {ρ : DiffSysRS Action Name (RSObs Action)}
@@ -2165,7 +2176,7 @@ lemma refusal_only_step_cofinal
       (capabilityTable_closed lts root initial (state, competitors) finiteCapability
         hConfig (by
           rw [hFiniteEq]
-          cases neg <;> simp [capabilities, req])
+          cases neg <;> simp [capabilities, req]) hNotSelf
         ((marks_iff_marksSet lts _ (state, competitors) finiteCapability).mpr hMark))
   refine ⟨finiteCapability, hMember, ?_⟩
   rw [hFiniteEq]
@@ -2182,11 +2193,32 @@ def finiteCofinalRelation
     (root : State) (initial : StateSet State) :
     DiffSysRS Action Name (RSObs Action) :=
   fun process Q observation =>
-    ∀ config ∈ queryConfigs lts root initial,
-      process = decode config.1 →
-      (∀ q, CCS.FiniteLTS.decodeSet decode config.2 q → Q q) →
-        ∃ finiteCapability, (config, finiteCapability) ∈ capabilityTable lts root initial ∧
-          capLe finiteCapability (reqOfObs observation)
+    ¬ Q process ∧
+      ∀ config ∈ queryConfigs lts root initial,
+        process = decode config.1 →
+        (∀ q, CCS.FiniteLTS.decodeSet decode config.2 q → Q q) →
+          ∃ finiteCapability, (config, finiteCapability) ∈ capabilityTable lts root initial ∧
+            capLe finiteCapability (reqOfObs observation)
+
+lemma finiteCofinalRelation_step_no_self
+    {Name : Type w}
+    (lts : CCS.FiniteLTS Action State)
+    (env : Env Action Name)
+    (decode : State → CCS Action Name)
+    (root : State) (initial : StateSet State)
+    (process : CCS Action Name) (Q : ProcSet Action Name) (observation : RSObs Action)
+    (hStep : DRS env (finiteCofinalRelation lts decode root initial) process Q observation) :
+    ¬ Q process := by
+  intro hMember
+  cases observation with
+  | tt => exact hStep process hMember
+  | node pos neg =>
+      rcases hStep with ⟨Qneg, Qpos, hPos, hRefuse, hEnabled, hCover⟩
+      rcases hCover process hMember with hNegative | ⟨index, hPositive⟩
+      · rcases hEnabled process hNegative with ⟨action, hAction, hEnabledAction⟩
+        exact hRefuse action hAction hEnabledAction
+      · rcases hPos index with ⟨successor, hDeriv, hChild⟩
+        exact hChild.1 ⟨process, hPositive, hDeriv⟩
 
 /-- The terminal DRS step is cofinal in a fixed query table. -/
 lemma finiteCofinalRelation_tt
@@ -2198,6 +2230,7 @@ lemma finiteCofinalRelation_tt
     (process : CCS Action Name) (Q : ProcSet Action Name)
     (hStep : DRS env (finiteCofinalRelation lts decode root initial) process Q .tt) :
     finiteCofinalRelation lts decode root initial process Q .tt := by
+  refine ⟨finiteCofinalRelation_step_no_self lts env decode root initial process Q .tt hStep, ?_⟩
   intro config hConfig hProcess hSubset
   have hEmpty : config.2 = ∅ := by
     ext source
@@ -2210,7 +2243,7 @@ lemma finiteCofinalRelation_tt
     simp [marks, hEmpty]
   refine ⟨.T, (capabilityConfigMem_iff _ _).mp
     (capabilityTable_closed lts root initial config .T hConfig
-      (by simp [capabilities]) hMark), ?_⟩
+      (by simp [capabilities]) (by simp [hEmpty]) hMark), ?_⟩
   simp [capLe]
 
 /-- A semantic child restricted to listed competitors is marked in the root query table. -/
@@ -2231,7 +2264,8 @@ lemma finiteCofinalRelation_child
         (DerivSetOf env Qpos action) observation)
     (selected : StateSet State)
     (hSelected : selected ⊆ config.2)
-    (hQpos : ∀ source, source ∈ selected → Qpos (decode source)) :
+    (hQpos : ∀ source, source ∈ selected → Qpos (decode source))
+    (hNotSelf : config.1 ∉ config.2) :
     ∃ successor, successor ∈ lts.next config.1 action ∧
       ∃ childCapability,
         ((successor, shift lts selected action), childCapability) ∈
@@ -2253,7 +2287,7 @@ lemma finiteCofinalRelation_child
     mem_queryConfigs_of_configSuccessor lts env decode realizes root initial
       hRoot hInitial config hConfig selected action successor
       (subset_mem_powerset (competitorsOf lts config.2) selected hSelectedListed)
-      (realizes.action_complete action) hNext
+      (realizes.action_complete action) hNext hNotSelf
   have hSubset : ∀ q, CCS.FiniteLTS.decodeSet decode
       (shift lts selected action) q → DerivSetOf env Qpos action q := by
     intro q hq
@@ -2262,7 +2296,7 @@ lemma finiteCofinalRelation_child
       ⟨source, hSource, hSourceNext⟩
     exact ⟨decode source, hQpos source hSource,
       realizes.next_sound source action target hSourceNext⟩
-  rcases hCofinal (successor, shift lts selected action) hQuery hDecode.symm hSubset with
+  rcases hCofinal.2 (successor, shift lts selected action) hQuery hDecode.symm hSubset with
     ⟨childCapability, hMember, hLe⟩
   exact ⟨successor, hNext, childCapability, hMember, hLe⟩
 
@@ -2311,6 +2345,7 @@ lemma assignment_node_cofinal
     (root : State) (initial : StateSet State)
     (config : ReadyConfig State)
     (hConfig : config ∈ queryConfigs lts root initial)
+    (hNotSelf : config.1 ∉ config.2)
     (pos : List (Action × RSObs Action)) (neg negative : List Action)
     (assignment : Assignment Action)
     (hNegative : negative ∈ listPowerset lts.actions)
@@ -2352,6 +2387,7 @@ lemma assignment_node_cofinal
   have hMember : (config, finiteCapability) ∈ capabilityTable lts root initial :=
     (capabilityConfigMem_iff _ _).mp
       (capabilityTable_closed lts root initial config finiteCapability hConfig hCapability
+        hNotSelf
         ((marks_iff_marksSet lts _ config finiteCapability).mpr hMark))
   exact ⟨finiteCapability, hMember,
     branchesRequirement_le_of_origins negative neg branches pos hNegEmpty hLength hOrigins⟩
@@ -2619,7 +2655,14 @@ private theorem readyCapabilities_correct_skeleton
       (pos : List (Action × RSObs Action)) (neg : List Action),
       DRS env (finiteCofinalRelation lts decode state competitors) process Q (.node pos neg) →
       finiteCofinalRelation lts decode state competitors process Q (.node pos neg) := by
-    intro process Q pos neg hStep config hConfig hProcess hSubset
+    intro process Q pos neg hStep
+    have hNotSelf := finiteCofinalRelation_step_no_self lts env decode state competitors
+      process Q (.node pos neg) hStep
+    refine ⟨hNotSelf, ?_⟩
+    intro config hConfig hProcess hSubset
+    have hConfigNotSelf : config.1 ∉ config.2 := by
+      intro hMember
+      exact hNotSelf (hProcess ▸ hSubset (decode config.1) ⟨config.1, hMember, rfl⟩)
     cases pos with
     | nil =>
         rcases config with ⟨source, selected⟩
@@ -2629,7 +2672,7 @@ private theorem readyCapabilities_correct_skeleton
               hState hCompetitors (source, selected) hConfig)).1
         subst process
         exact refusal_only_step_cofinal lts env decode realizes state competitors source selected
-          neg hSource hConfig Q hSubset hStep
+          neg hSource hConfig hConfigNotSelf Q hSubset hStep
     | cons head tail =>
         rcases hStep with ⟨Qneg, Qpos, hPos, hRefuse, hEnabled, hCover⟩
         subst process
@@ -2758,12 +2801,12 @@ private theorem readyCapabilities_correct_skeleton
           rcases finiteCofinalRelation_child lts env decode realizes state competitors
             hState hCompetitors config hConfig ((head :: tail).get index).1
             (Qpos index) ((head :: tail).get index).2 (hPos index)
-            branch.competitors hSelected hQpos with
+            branch.competitors hSelected hQpos hConfigNotSelf with
             ⟨successor, hNext, childCapability, hChild, hChildLe⟩
           exact ⟨successor, by simpa only [hAction] using hNext,
             childCapability, by simpa only [hAction] using hChild,
             by simpa only [hCapability] using hChildLe⟩
-        exact assignment_node_cofinal lts state competitors config hConfig
+        exact assignment_node_cofinal lts state competitors config hConfig hConfigNotSelf
           (head :: tail) neg negative assignment hNegative hRefuses hAssignment
           hWellFormed hValid hChildren hNegEmpty hLength hOrigins
   have raw_cofinal : ∀ candidate, semanticRaw candidate →
@@ -2777,7 +2820,7 @@ private theorem readyCapabilities_correct_skeleton
       cases observation with
       | tt => exact finiteCofinalRelation_tt lts env decode state competitors process Q hStep
       | node pos neg => exact node_step process Q pos neg hStep
-    rcases hCofinal (state, competitors) (mem_queryConfigs lts state competitors) rfl
+    rcases hCofinal.2 (state, competitors) (mem_queryConfigs lts state competitors) rfl
       (fun _ hMember => hMember) with ⟨finiteCandidate, hFinite, hFiniteLe⟩
     exact ⟨finiteCandidate, hFinite, capLe_trans hFiniteLe hRequirement⟩
   have minimal_agree : minimalCap finiteRaw capability ↔ minimalCap semanticRaw capability :=

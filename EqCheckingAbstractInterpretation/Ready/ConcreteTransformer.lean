@@ -60,6 +60,25 @@ def lfpDRS
       (∀ p' Q' o', DRS env ρ p' Q' o' → ρ p' Q' o') →
       ρ p Q o
 
+/-- A process already among the competitors has no distinguishing observation. -/
+theorem lfpDRS_no_self
+    (env : Env Action Name) (p : CCS Action Name) (Q : ProcSet Action Name)
+    (hMember : Q p) (o : RSObs Action) : ¬ lfpDRS env p Q o := by
+  intro hLfp
+  let ρ : DiffSysRS Action Name (RSObs Action) := fun process competitors _ => ¬ competitors process
+  have hPrefixed : ∀ process competitors observation,
+      DRS env ρ process competitors observation → ρ process competitors observation := by
+    intro process competitors observation hStep hCompetitor
+    cases observation with
+    | tt => exact hStep process hCompetitor
+    | node pos neg =>
+        rcases hStep with ⟨Qneg, Qpos, hPos, hNegP, hNegQ, hCover⟩
+        rcases hCover process hCompetitor with hNegative | ⟨index, hPositive⟩
+        · grind
+        · rcases hPos index with ⟨successor, hDeriv, hChild⟩
+          exact hChild ⟨process, hPositive, hDeriv⟩
+  exact (hLfp ρ hPrefixed) hMember
+
 /-- `lfpDRS` is a pre-fixpoint of `DRS`. -/
 theorem lfpDRS_prefixpoint
     (env : Env Action Name) :

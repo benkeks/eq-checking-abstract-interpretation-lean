@@ -201,10 +201,14 @@ def runReadyFailsAt (threshold : Capability) (state : RunProc)
 #eval runReadyFailsAt .F PA {PB}
 #eval runReadyFailsAt .S PB {PA}
 
-theorem runReadyCapabilities_PA_PB : runReadyCapabilities PA {PB} = [.F] := by native_decide
-theorem runReadyCapabilities_PB_PA : runReadyCapabilities PB {PA} = [.S] := by native_decide
-theorem runReadyFailsAt_PA_PB_F : runReadyFailsAt .F PA {PB} = true := by native_decide
-theorem runReadyFailsAt_PB_PA_S : runReadyFailsAt .S PB {PA} = true := by native_decide
+lemma runReadyCapabilities_PA_PB : runReadyCapabilities PA {PB} = [.F] := by native_decide
+lemma runReadyCapabilities_PB_PA : runReadyCapabilities PB {PA} = [.S] := by native_decide
+lemma runReadyFailsAt_PA_PB_F : runReadyFailsAt .F PA {PB} = true := by native_decide
+lemma runReadyFailsAt_PB_PA_S : runReadyFailsAt .S PB {PA} = true := by native_decide
+
+lemma runQueryConfigs_diagonal :
+  queryConfigs runLTS PA {PA, PB} = [(PA, {PA, PB})] := by native_decide
+lemma runCapabilityTable_diagonal : capabilityTable runLTS PA {PA, PB} = [] := by native_decide
 
 -- ---------------------------------------------------------------------------
 -- Capability lemma

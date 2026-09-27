@@ -192,9 +192,10 @@ where
 /-- Direct successors needed by all finite partitions at a Ready configuration. -/
 def configSuccessors (lts : CCS.FiniteLTS Action State) (config : ReadyConfig State) :
     List (ReadyConfig State) :=
-  (powerset (competitorsOf lts config.2)).flatMap (fun competitors =>
-    lts.actions.flatMap (fun action =>
-      (lts.next config.1 action).map (fun successor => (successor, shift lts competitors action))))
+  if config.1 ∈ config.2 then [] else
+    (powerset (competitorsOf lts config.2)).flatMap (fun competitors =>
+      lts.actions.flatMap (fun action =>
+        (lts.next config.1 action).map (fun successor => (successor, shift lts competitors action))))
 
 /-- All state-and-competitor configurations expressible by the finite LTS. -/
 abbrev configUniverse (lts : CCS.FiniteLTS Action State) : List (ReadyConfig State) :=
@@ -225,7 +226,9 @@ def queryConfigs (lts : CCS.FiniteLTS Action State) (state : State)
   queryConfigsUntil lts bound [(state, competitors)]
 
 def capabilityConfigs (configs : List (ReadyConfig State)) : List (CapabilityConfig State) :=
-  configs.flatMap (fun config => capabilities.map (fun capability => (config, capability)))
+  configs.flatMap (fun config =>
+    if config.1 ∈ config.2 then [] else
+      capabilities.map (fun capability => (config, capability)))
 
 def capabilityTableUntil (lts : CCS.FiniteLTS Action State)
     (configs : List (CapabilityConfig State)) : Nat → CapabilityTable State → CapabilityTable State
