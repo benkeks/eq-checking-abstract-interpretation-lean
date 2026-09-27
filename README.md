@@ -63,8 +63,8 @@ The formalization currently covers four layers.
 
 3. Unified capability-threshold abstraction.
   - `Ready/Basic.lean` formalizes the capability lattice and generic threshold theorems (`..._of_alpha`, `..._of_lfp`).
-  - `Ready/AbstractTransformer.lean` defines the exact abstract transformer (`bestDRS`) and abstract lfp constructions (`lfpBestDRS`, `lfpDRSAbsCanon`, `lfpDRSAbsExactCanon`).
-  - `Ready/Correctness.lean` proves RS instantiation theorems, including canonical-lfp threshold exactness and `lfpBestDRS` equivalence results.
+  - `Ready/AbstractTransformer.lean` defines the exact abstract transformer (`abstractDRS`), its least fixpoint (`lfpAbstractDRS`), and canonical abstractions of the concrete lfp (`lfpDRSAbsCanon`, `lfpDRSAbsExactCanon`).
+  - `Ready/Correctness.lean` proves RS instantiation theorems, including canonical-lfp threshold exactness and equality of `lfpAbstractDRS` with `lfpDRSAbsExactCanon`.
 
 4. Executable finite evaluation and correctness.
   - `FiniteEvaluator/Basic.lean` and `FiniteEvaluator/Correctness.lean` provide shared finite saturation and its proof.

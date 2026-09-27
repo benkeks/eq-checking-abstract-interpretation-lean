@@ -24,17 +24,17 @@ def gammaDRSAbs
   fun p Q o => ∃ c, ρa p Q c ∧ capLe c (reqOfObs o)
 
 /-- Exact abstract predecessor transformer on minimal capability antichains. -/
-def bestDRS
+def abstractDRS
     (env : Env Action Name)
     (ρa : AbsSysRS Action Name) :
     AbsSysRS Action Name :=
   fun p Q c => alphaCap rsObsCap (DRS env (gammaDRSAbs ρa) p Q) c
 
 /--
-Raw explicit expansion of `bestDRS`: choose one-step RS observations together with
+Raw explicit expansion of `abstractDRS`: choose one-step RS observations together with
 child capabilities justifying their membership in the concretization.
 -/
-def bestDRSRawExplicit
+def abstractDRSRawExplicit
     (env : Env Action Name)
     (ρa : AbsSysRS Action Name) :
     AbsSysRS Action Name :=
@@ -53,20 +53,20 @@ def bestDRSRawExplicit
           capLe (reqOfObs (.node pos neg)) c
 
 /-- Minimal-capability pruning of the explicit paper-style predecessor transformer. -/
-def bestDRSExplicit
+def abstractDRSExplicit
     (env : Env Action Name)
     (ρa : AbsSysRS Action Name) :
     AbsSysRS Action Name :=
-  fun p Q c => minimalCap (bestDRSRawExplicit env ρa p Q) c
+  fun p Q c => minimalCap (abstractDRSRawExplicit env ρa p Q) c
 
 /-- Pointwise equivalence between the explicit raw transformer and `alphaCapRaw`. -/
-theorem bestDRSRawExplicit_spec
+theorem abstractDRSRawExplicit_spec
     (env : Env Action Name)
     (ρa : AbsSysRS Action Name)
     (p : CCS Action Name)
     (Q : ProcSet Action Name)
     (c : Capability) :
-    bestDRSRawExplicit env ρa p Q c ↔
+    abstractDRSRawExplicit env ρa p Q c ↔
       alphaCapRaw rsObsCap (DRS env (gammaDRSAbs ρa) p Q) c := by
   constructor
   · intro h
@@ -99,56 +99,56 @@ theorem bestDRSRawExplicit_spec
         rcases hGamma with ⟨d, hd, hLe⟩
         exact ⟨p', hDer, d, hd, hLe⟩
 
-/-- The explicit paper-style transformer agrees pointwise with `bestDRS`. -/
-theorem bestDRSExplicit_iff
+/-- The explicit paper-style transformer agrees pointwise with `abstractDRS`. -/
+theorem abstractDRSExplicit_iff
     (env : Env Action Name)
     (ρa : AbsSysRS Action Name)
     (p : CCS Action Name)
     (Q : ProcSet Action Name)
     (c : Capability) :
-    bestDRSExplicit env ρa p Q c ↔ bestDRS env ρa p Q c := by
-  unfold bestDRSExplicit bestDRS alphaCap
+    abstractDRSExplicit env ρa p Q c ↔ abstractDRS env ρa p Q c := by
+  unfold abstractDRSExplicit abstractDRS alphaCap
   constructor
   · intro h
-    refine ⟨(bestDRSRawExplicit_spec env ρa p Q c).1 h.1, ?_⟩
+    refine ⟨(abstractDRSRawExplicit_spec env ρa p Q c).1 h.1, ?_⟩
     intro d hd hdLe
-    exact h.2 d ((bestDRSRawExplicit_spec env ρa p Q d).2 hd) hdLe
+    exact h.2 d ((abstractDRSRawExplicit_spec env ρa p Q d).2 hd) hdLe
   · intro h
-    refine ⟨(bestDRSRawExplicit_spec env ρa p Q c).2 h.1, ?_⟩
+    refine ⟨(abstractDRSRawExplicit_spec env ρa p Q c).2 h.1, ?_⟩
     intro d hd hdLe
-    exact h.2 d ((bestDRSRawExplicit_spec env ρa p Q d).1 hd) hdLe
+    exact h.2 d ((abstractDRSRawExplicit_spec env ρa p Q d).1 hd) hdLe
 
-/-- The explicit paper-style transformer is definitionally equivalent to `bestDRS`. -/
-theorem bestDRSExplicit_eq_bestDRS
+  /-- The explicit paper-style transformer equals `abstractDRS` by extensionality. -/
+  theorem abstractDRSExplicit_eq_abstractDRS
     (env : Env Action Name)
     (ρa : AbsSysRS Action Name) :
-    bestDRSExplicit env ρa = bestDRS env ρa := by
+    abstractDRSExplicit env ρa = abstractDRS env ρa := by
   funext p Q c
-  exact propext (bestDRSExplicit_iff env ρa p Q c)
+  exact propext (abstractDRSExplicit_iff env ρa p Q c)
 
-/-- Abstract pre-fixpoints of `bestDRS` with respect to the antichain order. -/
-def BestDRSPrefixpoint
+/-- Abstract pre-fixpoints of `abstractDRS` with respect to the antichain order. -/
+def AbstractDRSPrefixpoint
     (env : Env Action Name)
     (ρa : AbsSysRS Action Name) : Prop :=
-  AbsSysRSLe (bestDRS env ρa) ρa
+  AbsSysRSLe (abstractDRS env ρa) ρa
 
-/-- Least abstract fixpoint of `bestDRS`, defined via intersection of upward closures. -/
-def lfpBestDRS
+/-- Least abstract fixpoint of `abstractDRS`, defined via intersection of upward closures. -/
+def lfpAbstractDRS
     (env : Env Action Name) :
     AbsSysRS Action Name :=
   fun p Q c =>
     minimalCap (fun d =>
       ∀ ρa : AbsSysRS Action Name,
-        BestDRSPrefixpoint env ρa → upClosure (ρa p Q) d) c
+        AbstractDRSPrefixpoint env ρa → upClosure (ρa p Q) d) c
 
 /-- Pointwise expansion of the exact abstract predecessor transformer. -/
-theorem bestDRS_spec
+theorem abstractDRS_spec
     (env : Env Action Name)
     (ρa : AbsSysRS Action Name)
     (p : CCS Action Name)
     (Q : ProcSet Action Name)
     (c : Capability) :
-    bestDRS env ρa p Q c ↔ alphaCap rsObsCap (DRS env (gammaDRSAbs ρa) p Q) c :=
+    abstractDRS env ρa p Q c ↔ alphaCap rsObsCap (DRS env (gammaDRSAbs ρa) p Q) c :=
   Iff.rfl
 
 /-- Canonical abstract lfp induced by concrete lfp via `alphaCapRaw`. -/

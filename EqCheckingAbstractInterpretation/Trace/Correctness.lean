@@ -146,7 +146,7 @@ theorem lfpDTrSharp_iff_alpha_lfpDTr
     exact alpha_lfpDTr_le_of_abstract_prefixpoint ρ (lfpDTrSharp ρ) (lfpDTrSharp_prefixpoint ρ) p Q hAlpha
 
 /--
-Canonical best-correct-approximation statement, pointwise at `(p,Q)`:
+Canonical fixpoint exactness statement, pointwise at `(p,Q)`:
 marker derivability (the abstract lfp result) equals
 `alpha` applied to the concrete least fixpoint.
 -/
@@ -158,7 +158,7 @@ theorem markerPresence_iff_alpha_lfpDTr
   apply lfpDTrSharp_iff_alpha_lfpDTr ρ p Q
 
 /--
-Best-abstraction view for marker analysis:
+Non-emptiness abstraction view for marker analysis:
 `AbstractDiff` is exact for the abstraction "is the concrete lfp non-empty?".
 -/
 theorem markerPresence_iff_lfpDTr_nonempty

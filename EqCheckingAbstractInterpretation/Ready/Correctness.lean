@@ -108,17 +108,17 @@ theorem concrete_of_DRS_gammaDRSAbsExact
       · exact reqOfObs_node_replaceChildren_le pos neg childObs (fun i => (hChildSpec i).2.2)
 
 /--
-Backward completeness (pointwise) of the capability abstraction for `bestDRS`:
-`αcap ∘ DRS = bestDRS ∘ αcap`.
+Backward completeness (pointwise) of the capability abstraction for `abstractDRS`:
+`αcap ∘ DRS = abstractDRS ∘ αcap`.
 -/
-theorem backwardComplete_bestDRS
+theorem backwardComplete_abstractDRS
     (env : Env Action Name)
     (ρ : DiffSysRS Action Name (RSObs Action))
     (p : CCS Action Name)
     (Q : ProcSet Action Name)
     (c : Capability) :
     alphaCap rsObsCap (DRS env ρ p Q) c ↔
-      bestDRS env (fun p' Q' c' => alphaCap rsObsCap (ρ p' Q') c') p Q c := by
+      abstractDRS env (fun p' Q' c' => alphaCap rsObsCap (ρ p' Q') c') p Q c := by
   have hRaw :
       ∀ d : Capability,
         alphaCapRaw rsObsCap (DRS env ρ p Q) d ↔
@@ -153,7 +153,7 @@ theorem backwardComplete_bestDRS
       rcases h with ⟨o, hDRS, hCap⟩
       rcases concrete_of_DRS_gammaDRSAbsExact env ρ p Q o hDRS with ⟨o', hConcrete, hLe⟩
       exact ⟨o', hConcrete, capLe_trans hLe hCap⟩
-  unfold bestDRS alphaCap
+  unfold abstractDRS alphaCap
   constructor
   · intro h
     refine ⟨(hRaw c).mp h.1, ?_⟩
@@ -164,27 +164,27 @@ theorem backwardComplete_bestDRS
     intro d hd hdLe
     exact h.2 d ((hRaw d).mp hd) hdLe
 
-/-- Function-extensional form of `backwardComplete_bestDRS`. -/
-theorem backwardComplete_bestDRS_funext
+/-- Function-extensional form of `backwardComplete_abstractDRS`. -/
+theorem backwardComplete_abstractDRS_funext
     (env : Env Action Name)
     (ρ : DiffSysRS Action Name (RSObs Action)) :
     (fun p Q c => alphaCap rsObsCap (DRS env ρ p Q) c) =
-      bestDRS env (fun p' Q' c' => alphaCap rsObsCap (ρ p' Q') c') := by
+      abstractDRS env (fun p' Q' c' => alphaCap rsObsCap (ρ p' Q') c') := by
   funext p Q c
-  exact propext (backwardComplete_bestDRS env ρ p Q c)
+  exact propext (backwardComplete_abstractDRS env ρ p Q c)
 
 /-- Any abstract pre-fixpoint induces a concrete pre-fixpoint via `gammaDRSAbs`. -/
 theorem gammaDRSAbs_prefixpoint_of_abstract_prefixpoint
     (env : Env Action Name)
     (ρa : AbsSysRS Action Name)
-    (hρa : BestDRSPrefixpoint env ρa) :
+    (hρa : AbstractDRSPrefixpoint env ρa) :
     ∀ p Q o, DRS env (gammaDRSAbs ρa) p Q o → gammaDRSAbs ρa p Q o := by
   intro p Q o hDRS
-  have hUpBest : upClosure (bestDRS env ρa p Q) (reqOfObs o) := by
+  have hUpAbstract : upClosure (abstractDRS env ρa p Q) (reqOfObs o) := by
     exact (upClosure_alphaCap_iff_alphaCapRaw
       rsObsCap rsObsCapMonotone (DRS env (gammaDRSAbs ρa) p Q) (reqOfObs o)).2
       ⟨o, hDRS, capLe_refl _⟩
-  exact hρa p Q (reqOfObs o) hUpBest
+  exact hρa p Q (reqOfObs o) hUpAbstract
 
 /--
 Any observation admitted by the exact concretization of the canonical abstract
@@ -213,27 +213,27 @@ theorem concrete_of_DRS_gammaDRSAbsExactCanon
     ∃ o', DRS env (lfpDRS env) p Q o' ∧ capLe (reqOfObs o') (reqOfObs o) := by
   exact concrete_of_DRS_gammaDRSAbsExact env (ρ := lfpDRS env) p Q o hDRS
 
-/-- `lfpBestDRS` lies below every abstract pre-fixpoint of `bestDRS`. -/
-theorem lfpBestDRS_le_of_abstract_prefixpoint
+/-- `lfpAbstractDRS` lies below every abstract pre-fixpoint of `abstractDRS`. -/
+theorem lfpAbstractDRS_le_of_abstract_prefixpoint
     (env : Env Action Name)
     (ρa : AbsSysRS Action Name)
-    (hρa : BestDRSPrefixpoint env ρa)
+    (hρa : AbstractDRSPrefixpoint env ρa)
     (p : CCS Action Name)
     (Q : ProcSet Action Name)
     (c : Capability)
-    (hLfp : lfpBestDRS env p Q c) :
+    (hLfp : lfpAbstractDRS env p Q c) :
     upClosure (ρa p Q) c := by
   exact minimalCap_left _ hLfp ρa hρa
 
-/-- The exact canonical abstraction induced by `lfpDRS` is a pre-fixpoint of `bestDRS`. -/
+/-- The exact canonical abstraction induced by `lfpDRS` is a pre-fixpoint of `abstractDRS`. -/
 theorem lfpDRSAbsExactCanon_prefixpoint
     (env : Env Action Name) :
-    BestDRSPrefixpoint env (lfpDRSAbsExactCanon env) := by
-  intro p Q c hBest
-  have hRawBest : alphaCapRaw rsObsCap (DRS env (gammaDRSAbs (lfpDRSAbsExactCanon env)) p Q) c := by
+    AbstractDRSPrefixpoint env (lfpDRSAbsExactCanon env) := by
+  intro p Q c hAbstract
+  have hRaw : alphaCapRaw rsObsCap (DRS env (gammaDRSAbs (lfpDRSAbsExactCanon env)) p Q) c := by
     exact (upClosure_alphaCap_iff_alphaCapRaw
-      rsObsCap rsObsCapMonotone (DRS env (gammaDRSAbs (lfpDRSAbsExactCanon env)) p Q) c).1 hBest
-  rcases hRawBest with ⟨o, hDRS, hCap⟩
+      rsObsCap rsObsCapMonotone (DRS env (gammaDRSAbs (lfpDRSAbsExactCanon env)) p Q) c).1 hAbstract
+  rcases hRaw with ⟨o, hDRS, hCap⟩
   rcases concrete_of_DRS_gammaDRSAbsExactCanon env p Q o hDRS with ⟨o', hConcrete, hLe⟩
   have hLfp : lfpDRS env p Q o' := lfpDRS_prefixpoint env p Q o' hConcrete
   have hUp : upClosure (lfpDRSAbsExactCanon env p Q) c := by
@@ -247,7 +247,7 @@ theorem below_all_abstract_prefixpoints_iff_alphaCapRaw_lfpDRS
     (Q : ProcSet Action Name)
     (c : Capability) :
     (∀ ρa : AbsSysRS Action Name,
-        BestDRSPrefixpoint env ρa → upClosure (ρa p Q) c) ↔
+        AbstractDRSPrefixpoint env ρa → upClosure (ρa p Q) c) ↔
       alphaCapRaw rsObsCap (lfpDRS env p Q) c := by
   constructor
   · intro hAll
@@ -264,10 +264,10 @@ theorem below_all_abstract_prefixpoints_iff_alphaCapRaw_lfpDRS
     rcases hGamma with ⟨d, hd, hdLe⟩
     exact ⟨d, hd, capLe_trans hdLe hCap⟩
 
-/-- The abstract lfp of `bestDRS` coincides with the canonical exact abstraction of `lfpDRS`. -/
-theorem lfpBestDRS_eq_lfpDRSAbsExactCanon
+/-- The abstract lfp of `abstractDRS` coincides with the canonical exact abstraction of `lfpDRS`. -/
+theorem lfpAbstractDRS_eq_lfpDRSAbsExactCanon
     (env : Env Action Name) :
-    lfpBestDRS env = lfpDRSAbsExactCanon env := by
+    lfpAbstractDRS env = lfpDRSAbsExactCanon env := by
   funext p Q c
   apply propext
   apply Iff.intro
@@ -382,28 +382,28 @@ theorem abstractFailsAtExact_iff_rsDifferenceThreshold
       (Action := Action) (Name := Name) env N p Q).2 ?_
     exact ⟨o, (rsDifferenceToSet_eq_lfpDRS env p Q o).1 hDiff, hCap⟩
 
-/-- Exact-pruned threshold theorem stated over the abstract lfp `lfpBestDRS`. -/
-theorem abstractFailsAt_lfpBestDRS_iff_rsDifferenceThreshold
+/-- Exact-pruned threshold theorem stated over the abstract lfp `lfpAbstractDRS`. -/
+theorem abstractFailsAt_lfpAbstractDRS_iff_rsDifferenceThreshold
     (env : Env Action Name)
     (N : Capability)
     (p : CCS Action Name)
     (Q : ProcSet Action Name) :
-    abstractFailsAt (lfpBestDRS env) N p Q ↔
+    abstractFailsAt (lfpAbstractDRS env) N p Q ↔
       ∃ o : RSObs Action, RSDifferenceToSet env p Q o ∧ rsObsCap N o := by
-  have hEq := lfpBestDRS_eq_lfpDRSAbsExactCanon (Action := Action) (Name := Name) env
+  have hEq := lfpAbstractDRS_eq_lfpDRSAbsExactCanon (Action := Action) (Name := Name) env
   simpa [hEq] using abstractFailsAtExact_iff_rsDifferenceThreshold
     (Action := Action) (Name := Name) env N p Q
 
-/-- Paper-style threshold exactness for the abstract lfp `lfpBestDRS`. -/
-theorem thresholdWitness_lfpBestDRS_iff_rsDifferenceThreshold
+/-- Paper-style threshold exactness for the abstract lfp `lfpAbstractDRS`. -/
+theorem thresholdWitness_lfpAbstractDRS_iff_rsDifferenceThreshold
     (env : Env Action Name)
     (N : Capability)
     (p : CCS Action Name)
     (Q : ProcSet Action Name) :
-    (∃ c, lfpBestDRS env p Q c ∧ capLe c N) ↔
+    (∃ c, lfpAbstractDRS env p Q c ∧ capLe c N) ↔
       ∃ o : RSObs Action, RSDifferenceToSet env p Q o ∧ rsObsCap N o := by
   simpa [abstractFailsAt, thresholdWitness] using
-    abstractFailsAt_lfpBestDRS_iff_rsDifferenceThreshold
+    abstractFailsAt_lfpAbstractDRS_iff_rsDifferenceThreshold
       (Action := Action) (Name := Name) env N p Q
 
 end EqCheckingAbstractInterpretation.Ready
