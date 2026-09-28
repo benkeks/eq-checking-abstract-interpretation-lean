@@ -1,14 +1,14 @@
 import EqCheckingAbstractInterpretation.Ready.Correctness
 import EqCheckingAbstractInterpretation.Ready.ConcreteDifference
 import EqCheckingAbstractInterpretation.Ready.FiniteEvaluatorCorrectness
-import EqCheckingAbstractInterpretation.RunningExample
+import EqCheckingAbstractInterpretation.CCS.RunningExample
 
 namespace EqCheckingAbstractInterpretation.Ready.RunningExample
 
 open EqCheckingAbstractInterpretation.CCS
 open EqCheckingAbstractInterpretation.Ready
 open EqCheckingAbstractInterpretation.Trace
-open EqCheckingAbstractInterpretation.RunningExample
+open EqCheckingAbstractInterpretation.CCS.RunningExample
 
 set_option linter.constructorNameAsVariable false
 

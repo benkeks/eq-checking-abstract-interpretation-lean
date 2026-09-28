@@ -1,6 +1,6 @@
 import EqCheckingAbstractInterpretation.CCS.FiniteLTS
 
-namespace EqCheckingAbstractInterpretation.RunningExample
+namespace EqCheckingAbstractInterpretation.CCS.RunningExample
 
 open EqCheckingAbstractInterpretation.CCS
 
@@ -45,4 +45,4 @@ def runLTS : CCS.FiniteLTS RunAct RunProc where
   states := [PA, PB, PBb0, b0, .zero]
   next := runNext
 
-end EqCheckingAbstractInterpretation.RunningExample
+end EqCheckingAbstractInterpretation.CCS.RunningExample

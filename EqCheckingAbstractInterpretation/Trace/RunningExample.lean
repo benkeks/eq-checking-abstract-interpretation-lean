@@ -1,13 +1,13 @@
 import EqCheckingAbstractInterpretation.Trace.Correctness
 import EqCheckingAbstractInterpretation.Trace.FiniteEvaluator
 import EqCheckingAbstractInterpretation.Trace.FiniteEvaluatorCorrectness
-import EqCheckingAbstractInterpretation.RunningExample
+import EqCheckingAbstractInterpretation.CCS.RunningExample
 
 namespace EqCheckingAbstractInterpretation.Trace.RunningExample
 
 open EqCheckingAbstractInterpretation.CCS
 open EqCheckingAbstractInterpretation.Trace
-open EqCheckingAbstractInterpretation.RunningExample
+open EqCheckingAbstractInterpretation.CCS.RunningExample
 
 /-!
 ## Running Example: Abstract Trace Differences
