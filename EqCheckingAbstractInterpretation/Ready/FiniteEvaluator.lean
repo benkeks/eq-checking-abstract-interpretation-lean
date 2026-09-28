@@ -189,6 +189,26 @@ where
   refuses (lts : CCS.FiniteLTS Action State) (state : State) (negative : List Action) : Bool :=
     negative.all (fun action => (lts.next state action).isEmpty)
 
+def refusalChoices (lts : CCS.FiniteLTS Action State) (state : State) : List (List Action) :=
+  [[], lts.actions.filter (fun action => (lts.next state action).isEmpty)]
+
+def marksWithRefusals (lts : CCS.FiniteLTS Action State)
+  (marked : CapabilityTable State)
+    (config : ReadyConfig State) (capability : Capability) : Bool :=
+  (decide (config.2 = ∅) && decide (capability = .T)) ||
+    (refusalChoices lts config.1).any (fun negative =>
+      marks.refuses lts config.1 negative &&
+        let competitors := competitorsOf lts config.2
+        let choices := (assignmentChoices lts (List.range competitors.length)).filter
+          (fun choice => match choice with
+            | none => true
+            | some (_, action, _) => !(lts.next config.1 action).isEmpty)
+        wellFormedAssignmentsAny choices competitors (fun assignment =>
+          let branches := assignmentBranches competitors assignment
+          decide (branchesRequirement negative branches = capability) &&
+            negativeAssignmentValid lts competitors negative assignment &&
+              branchesValid lts marked config.1 branches))
+
 /-- Direct successors needed by all finite partitions at a Ready configuration. -/
 def configSuccessors (lts : CCS.FiniteLTS Action State) (config : ReadyConfig State) :
     List (ReadyConfig State) :=
@@ -252,13 +272,32 @@ def minimalCapabilities (marked : CapabilityTable State) (config : ReadyConfig S
         !(decide (smaller = capability)) && capabilityConfigMem (config, smaller) marked &&
           capLeBool smaller capability))
 
+def prunedCapabilityStep (lts : CCS.FiniteLTS Action State)
+    (domain : List (CapabilityConfig State)) (marked : CapabilityTable State) :
+    CapabilityTable State :=
+  marked ++ domain.filter (fun entry =>
+    !capabilityConfigMem entry marked &&
+      (decide (entry.2 = .T) || !capabilityConfigMem (entry.1, .T) marked) &&
+        marksWithRefusals lts marked entry.1 entry.2)
+
+def minimalCapabilitiesUntil (lts : CCS.FiniteLTS Action State)
+    (domain : List (CapabilityConfig State)) (config : ReadyConfig State) :
+    Nat → CapabilityTable State → List Capability
+  | 0, marked => minimalCapabilities marked config
+  | fuel + 1, marked =>
+    if capabilityConfigMem (config, .T) marked then [.T] else
+      let expanded := prunedCapabilityStep lts domain marked
+      if expanded = marked then minimalCapabilities marked config
+      else minimalCapabilitiesUntil lts domain config fuel expanded
+
 /--
 Finite exact-capability query for the symbolic Ready transformer.  The result
 is the minimal antichain of capability requirements derived at the query.
 -/
 def readyCapabilities (lts : CCS.FiniteLTS Action State) (state : State)
     (competitors : StateSet State) : List Capability :=
-  minimalCapabilities (capabilityTable lts state competitors) (state, competitors)
+  let domain := capabilityConfigs (queryConfigs lts state competitors)
+  minimalCapabilitiesUntil lts domain (state, competitors) domain.length []
 
 /-- Does the finite capability result refute the given threshold preorder? -/
 def failsAt (lts : CCS.FiniteLTS Action State) (threshold : Capability)

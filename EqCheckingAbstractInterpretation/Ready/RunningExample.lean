@@ -203,6 +203,7 @@ def runReadyFailsAt (threshold : Capability) (state : RunProc)
 
 lemma runReadyCapabilities_PA_PB : runReadyCapabilities PA {PB} = [.F] := by native_decide
 lemma runReadyCapabilities_PB_PA : runReadyCapabilities PB {PA} = [.S] := by native_decide
+lemma runReadyCapabilities_PA_empty : runReadyCapabilities PA ∅ = [.T] := by native_decide
 lemma runReadyFailsAt_PA_PB_F : runReadyFailsAt .F PA {PB} = true := by native_decide
 lemma runReadyFailsAt_PB_PA_S : runReadyFailsAt .S PB {PA} = true := by native_decide
 

@@ -1545,6 +1545,185 @@ lemma markedAt_iff (marked : CapabilityTable State) (config : ReadyConfig State)
     exact ⟨(config, capability), hMember,
       ⟨⟨rfl, rfl⟩, capLeBool_iff capability threshold |>.mpr hLe⟩⟩
 
+omit [DecidableEq Action] in
+private lemma listPowerset_member_subset (actions negative : List Action)
+    (hNegative : negative ∈ listPowerset actions) :
+    ∀ action, action ∈ negative → action ∈ actions := by
+  induction actions generalizing negative with
+  | nil => simp [listPowerset] at hNegative; simp [hNegative]
+  | cons head tail ih =>
+      change negative ∈ listPowerset tail ++ (listPowerset tail).map (head :: ·) at hNegative
+      rcases List.mem_append.mp hNegative with hTail | hSelected
+      · intro action hAction
+        exact List.mem_cons_of_mem head (ih negative hTail action hAction)
+      · rcases List.mem_map.mp hSelected with ⟨selected, hSelectedTail, hEqual⟩
+        cases hEqual
+        intro action hAction
+        rcases List.mem_cons.mp hAction with rfl | hAction
+        · exact List.mem_cons_self
+        · exact List.mem_cons_of_mem head (ih selected hSelectedTail action hAction)
+
+    omit [DecidableEq Action] in
+    /-- Filtering an action list selects a member of its list-valued powerset. -/
+    lemma filter_mem_listPowerset (actions : List Action)
+    (selected : Action → Bool) :
+    actions.filter selected ∈ listPowerset actions := by
+  induction actions with
+  | nil => simp [listPowerset]
+  | cons action actions ih =>
+      change (action :: actions).filter selected ∈
+        listPowerset actions ++ (listPowerset actions).map (action :: ·)
+      by_cases hSelected : selected action = true
+      · simp [hSelected, ih]
+      · simp [hSelected, ih]
+
+private lemma negativeAssignmentValid_mono (lts : CCS.FiniteLTS Action State)
+    (competitors : List State) (assignment : Assignment Action)
+    (negative enlarged : List Action)
+    (hSubset : ∀ action, action ∈ negative → action ∈ enlarged)
+    (hValid : negativeAssignmentValid lts competitors negative assignment = true) :
+    negativeAssignmentValid lts competitors enlarged assignment = true := by
+  induction competitors generalizing assignment with
+  | nil =>
+      cases assignment with
+      | nil => rfl
+      | cons choice tail => cases choice <;> simp [negativeAssignmentValid] at hValid
+  | cons competitor rest ih =>
+      cases assignment with
+      | nil => simp [negativeAssignmentValid] at hValid
+      | cons choice tail =>
+          cases choice with
+          | none =>
+              simp only [negativeAssignmentValid, Bool.and_eq_true] at hValid ⊢
+              refine ⟨?_, ih tail hValid.2⟩
+              rcases List.any_eq_true.mp hValid.1 with ⟨action, hAction, hEnabled⟩
+              exact List.any_eq_true.mpr ⟨action, hSubset action hAction, hEnabled⟩
+          | some _ => exact ih tail (by simpa [negativeAssignmentValid] using hValid)
+
+omit [DecidableEq State] in
+private lemma wellFormedAssignmentsAny_mono
+    (choices : List (Option (Nat × Action × Capability)))
+    (competitors : List State) (left right : Assignment Action → Bool)
+    (hImp : ∀ assignment, left assignment = true → right assignment = true)
+    (hLeft : wellFormedAssignmentsAny choices competitors left = true) :
+    wellFormedAssignmentsAny choices competitors right = true := by
+  simp only [wellFormedAssignmentsAny_eq, assignmentsAny_eq_any, List.any_eq_true,
+    Bool.and_eq_true] at hLeft ⊢
+  rcases hLeft with ⟨assignment, hAssignment, hWellFormed, hAccept⟩
+  exact ⟨assignment, hAssignment, hWellFormed, hImp assignment hAccept⟩
+
+private lemma marksWithRefusals_eq (lts : CCS.FiniteLTS Action State)
+    (marked : CapabilityTable State) (config : ReadyConfig State)
+    (capability : Capability) :
+  marksWithRefusals lts marked config capability =
+      marks lts marked config capability := by
+  let competitors := competitorsOf lts config.2
+  let choices := (assignmentChoices lts (List.range competitors.length)).filter
+    (fun choice => match choice with
+      | none => true
+      | some (_, action, _) => !(lts.next config.1 action).isEmpty)
+  let accept : List Action → Bool := fun negative =>
+    marks.refuses lts config.1 negative &&
+      wellFormedAssignmentsAny choices competitors (fun assignment =>
+        let branches := assignmentBranches competitors assignment
+        decide (branchesRequirement negative branches = capability) &&
+          negativeAssignmentValid lts competitors negative assignment &&
+            branchesValid lts marked config.1 branches)
+  have hSearch : (refusalChoices lts config.1).any accept =
+      (listPowerset lts.actions).any accept := by
+    apply Bool.eq_iff_iff.mpr
+    simp only [List.any_eq_true]
+    constructor
+    · rintro ⟨negative, hNegative, hAccept⟩
+      have hMember : negative ∈ listPowerset lts.actions := by
+        rcases (by simpa [refusalChoices] using hNegative :
+          negative = [] ∨ negative = lts.actions.filter
+            (fun action => (lts.next config.1 action).isEmpty)) with hNil | hFull
+        · subst negative
+          simpa using filter_mem_listPowerset lts.actions (fun _ => false)
+        · subst negative
+          exact filter_mem_listPowerset lts.actions _
+      exact ⟨negative, hMember, hAccept⟩
+    · rintro ⟨negative, hNegative, hAccept⟩
+      by_cases hEmpty : negative = []
+      · subst negative
+        exact ⟨[], by simp [refusalChoices], hAccept⟩
+      · let disabled := lts.actions.filter (fun action => (lts.next config.1 action).isEmpty)
+        have hParts : marks.refuses lts config.1 negative = true ∧
+            wellFormedAssignmentsAny choices competitors (fun assignment =>
+              let branches := assignmentBranches competitors assignment
+              decide (branchesRequirement negative branches = capability) &&
+                negativeAssignmentValid lts competitors negative assignment &&
+                  branchesValid lts marked config.1 branches) = true := by
+          simpa only [accept, Bool.and_eq_true] using hAccept
+        have hRefuses := hParts.1
+        have hSubset : ∀ action, action ∈ negative → action ∈ disabled := by
+          intro action hAction
+          apply List.mem_filter.mpr
+          exact ⟨listPowerset_member_subset lts.actions negative hNegative action hAction,
+            (List.all_eq_true.mp hRefuses) action hAction⟩
+        have hDisabled : disabled ≠ [] := by
+          intro hNil
+          cases negative with
+          | nil => exact hEmpty rfl
+          | cons head tail =>
+              have hHead : head ∈ disabled := hSubset head (by simp)
+              simp [hNil] at hHead
+        have hNegativeNonempty : negative.isEmpty = false := by
+          cases negative with
+          | nil => exact (hEmpty rfl).elim
+          | cons _ _ => rfl
+        have hDisabledNonempty : disabled.isEmpty = false := by
+          cases h : disabled with
+          | nil => exact (hDisabled h).elim
+          | cons _ _ => rfl
+        have hShape : (!disabled.isEmpty) = (!negative.isEmpty) := by
+          simp [hDisabledNonempty, hNegativeNonempty]
+        have hFullRefuses : marks.refuses lts config.1 disabled = true := by
+          simp only [marks.refuses, List.all_eq_true]
+          intro action hAction
+          exact (List.mem_filter.mp hAction).2
+        have hFullAssignments : wellFormedAssignmentsAny choices competitors
+            (fun assignment =>
+              let branches := assignmentBranches competitors assignment
+              decide (branchesRequirement disabled branches = capability) &&
+                negativeAssignmentValid lts competitors disabled assignment &&
+                  branchesValid lts marked config.1 branches) = true := by
+          refine wellFormedAssignmentsAny_mono choices competitors _ _ ?_ hParts.2
+          intro assignment hAssignment
+          simp only [Bool.and_eq_true] at hAssignment ⊢
+          refine ⟨⟨?_, negativeAssignmentValid_mono lts competitors assignment negative
+            disabled hSubset hAssignment.1.2⟩, hAssignment.2⟩
+          simpa [branchesRequirement, hShape] using hAssignment.1.1
+        refine ⟨disabled, by simp [refusalChoices, disabled], ?_⟩
+        simpa only [accept, Bool.and_eq_true] using
+          (show marks.refuses lts config.1 disabled = true ∧
+            wellFormedAssignmentsAny choices competitors (fun assignment =>
+              let branches := assignmentBranches competitors assignment
+              decide (branchesRequirement disabled branches = capability) &&
+                negativeAssignmentValid lts competitors disabled assignment &&
+                  branchesValid lts marked config.1 branches) = true from
+            ⟨hFullRefuses, hFullAssignments⟩)
+  simpa only [marksWithRefusals, marks, competitors, choices, accept] using
+    congrArg (fun result =>
+      (decide (config.2 = ∅) && decide (capability = .T)) || result) hSearch
+
+private lemma branchesValid_congr (lts : CCS.FiniteLTS Action State)
+    (left right : CapabilityTable State)
+    (hLookup : ∀ config threshold, markedAt left config threshold = markedAt right config threshold)
+    (state : State) (branches : List (Branch Action State)) :
+    branchesValid lts left state branches = branchesValid lts right state branches := by
+  induction branches with
+  | nil => rfl
+  | cons branch rest ih => simp [branchesValid, hLookup, ih]
+
+private lemma marks_congr (lts : CCS.FiniteLTS Action State)
+    (left right : CapabilityTable State)
+    (hLookup : ∀ config threshold, markedAt left config threshold = markedAt right config threshold)
+    (config : ReadyConfig State) (capability : Capability) :
+    marks lts left config capability = marks lts right config capability := by
+  simp [marks, branchesValid_congr lts left right hLookup]
+
 /-- Positive branch validation is exactly a table witness for every grouped branch. -/
 lemma branchesValid_iff
     (lts : CCS.FiniteLTS Action State)
@@ -1997,6 +2176,220 @@ lemma mem_minimalCapabilities_iff
       · intro hF
         exact hMinimal .F hF (by simp [capLe])
 
+private lemma minimalCapabilities_eq_T_of_mem (marked : CapabilityTable State)
+    (config : ReadyConfig State)
+    (hT : capabilityConfigMem (config, .T) marked = true) :
+    minimalCapabilities marked config = [.T] := by
+  simp [minimalCapabilities, capabilities, hT, capLeBool]
+
+private lemma mem_capabilityTableUntil_of_mem (lts : CCS.FiniteLTS Action State)
+    (domain : List (CapabilityConfig State)) (fuel : Nat)
+    (marked : CapabilityTable State) (entry : CapabilityConfig State)
+    (hEntry : entry ∈ marked) :
+    entry ∈ capabilityTableUntil lts domain fuel marked := by
+  induction fuel generalizing marked with
+  | zero => exact hEntry
+  | succ fuel ih =>
+      rw [capabilityTableUntil]
+      split_ifs with hStable
+      · exact hEntry
+      · exact ih _ (by simp [saturateStep, hEntry])
+
+private lemma mem_prunedCapabilityStep_iff (lts : CCS.FiniteLTS Action State)
+    (domain marked : CapabilityTable State) (entry : CapabilityConfig State) :
+    entry ∈ prunedCapabilityStep lts domain marked ↔
+      entry ∈ marked ∨ entry ∈ domain ∧ entry ∉ marked ∧
+        (entry.2 = .T ∨ (entry.1, .T) ∉ marked) ∧
+          marks lts marked entry.1 entry.2 = true := by
+  simp [prunedCapabilityStep, marksWithRefusals_eq,
+    capabilityConfigMem_eq_false_iff, Bool.and_eq_true, Bool.or_eq_true, and_assoc]
+
+private lemma mem_fullCapabilityStep_iff (lts : CCS.FiniteLTS Action State)
+    (domain marked : CapabilityTable State) (entry : CapabilityConfig State) :
+    entry ∈ saturateStep domain capabilityConfigMem
+      (fun marked config => marks lts marked config.1 config.2) marked ↔
+      entry ∈ marked ∨ entry ∈ domain ∧ entry ∉ marked ∧
+        marks lts marked entry.1 entry.2 = true := by
+  simp [saturateStep, capabilityConfigMem_eq_false_iff, Bool.and_eq_true]
+
+private def lookupEquivalent (left right : CapabilityTable State) : Prop :=
+  ∀ config threshold, markedAt left config threshold = markedAt right config threshold
+
+private lemma lookupEquivalent_step (lts : CCS.FiniteLTS Action State)
+    (domain left right : CapabilityTable State)
+    (hEquivalent : lookupEquivalent left right) :
+    lookupEquivalent (prunedCapabilityStep lts domain left)
+      (saturateStep domain capabilityConfigMem
+        (fun marked config => marks lts marked config.1 config.2) right) := by
+  intro config threshold
+  apply Bool.eq_iff_iff.mpr
+  simp only [markedAt_iff]
+  constructor
+  · rintro ⟨capability, hMember, hLe⟩
+    rcases (mem_prunedCapabilityStep_iff lts domain left _).mp hMember with
+      hOld | ⟨hDomain, _, _, hMarks⟩
+    · have hOldAt : markedAt left config threshold = true :=
+        (markedAt_iff left config threshold).mpr ⟨capability, hOld, hLe⟩
+      rcases (markedAt_iff right config threshold).mp (hEquivalent config threshold ▸ hOldAt) with
+        ⟨witness, hWitness, hWitnessLe⟩
+      exact ⟨witness, (mem_fullCapabilityStep_iff lts domain right _).mpr (Or.inl hWitness),
+        hWitnessLe⟩
+    · have hMarksRight := (marks_congr lts left right hEquivalent config capability) ▸ hMarks
+      by_cases hPresent : (config, capability) ∈ right
+      · exact ⟨capability, (mem_fullCapabilityStep_iff lts domain right _).mpr (Or.inl hPresent), hLe⟩
+      · exact ⟨capability, (mem_fullCapabilityStep_iff lts domain right _).mpr
+          (Or.inr ⟨hDomain, hPresent, hMarksRight⟩), hLe⟩
+  · rintro ⟨capability, hMember, hLe⟩
+    rcases (mem_fullCapabilityStep_iff lts domain right _).mp hMember with
+      hOld | ⟨hDomain, _, hMarks⟩
+    · have hOldAt : markedAt right config threshold = true :=
+        (markedAt_iff right config threshold).mpr ⟨capability, hOld, hLe⟩
+      rcases (markedAt_iff left config threshold).mp ((hEquivalent config threshold).symm ▸ hOldAt) with
+        ⟨witness, hWitness, hWitnessLe⟩
+      exact ⟨witness, (mem_prunedCapabilityStep_iff lts domain left _).mpr (Or.inl hWitness),
+        hWitnessLe⟩
+    · by_cases hT : (config, .T) ∈ left
+      · exact ⟨.T, (mem_prunedCapabilityStep_iff lts domain left _).mpr (Or.inl hT),
+          by simp [capLe]⟩
+      · have hMarksLeft := (marks_congr lts left right hEquivalent config capability).symm ▸ hMarks
+        by_cases hPresent : (config, capability) ∈ left
+        · exact ⟨capability, (mem_prunedCapabilityStep_iff lts domain left _).mpr
+            (Or.inl hPresent), hLe⟩
+        · exact ⟨capability, (mem_prunedCapabilityStep_iff lts domain left _).mpr
+            (Or.inr ⟨hDomain, hPresent, Or.inr hT, hMarksLeft⟩), hLe⟩
+
+private lemma minimalCap_iff_of_mutual_cofinality
+    (left right : Capability → Prop)
+    (hLeft : ∀ capability, left capability →
+      ∃ other, right other ∧ capLe other capability)
+    (hRight : ∀ capability, right capability →
+      ∃ other, left other ∧ capLe other capability)
+    (capability : Capability) :
+    minimalCap left capability ↔ minimalCap right capability := by
+  have forward (first second : Capability → Prop)
+      (hFirst : ∀ c, first c → ∃ other, second other ∧ capLe other c)
+      (hSecond : ∀ c, second c → ∃ other, first other ∧ capLe other c)
+      (c : Capability) : minimalCap first c → minimalCap second c := by
+    rintro ⟨hMember, hMinimal⟩
+    rcases hFirst c hMember with ⟨other, hOther, hOtherLe⟩
+    rcases hSecond other hOther with ⟨witness, hWitness, hWitnessLe⟩
+    have hCapabilityLe := hMinimal witness hWitness (capLe_trans hWitnessLe hOtherLe)
+    have hEqual : other = c :=
+      capLe_antisymm hOtherLe (capLe_trans hCapabilityLe hWitnessLe)
+    subst other
+    refine ⟨hOther, ?_⟩
+    intro other hOther hOtherLe
+    rcases hSecond other hOther with ⟨witness, hWitness, hWitnessLe⟩
+    exact capLe_trans (hMinimal witness hWitness (capLe_trans hWitnessLe hOtherLe))
+      hWitnessLe
+  exact ⟨forward left right hLeft hRight capability,
+    forward right left hRight hLeft capability⟩
+
+private lemma minimalCapabilities_eq_of_lookup (left right : CapabilityTable State)
+    (config : ReadyConfig State) (hEquivalent : lookupEquivalent left right) :
+    minimalCapabilities left config = minimalCapabilities right config := by
+  have hCofinal (first second : CapabilityTable State)
+      (hLookup : lookupEquivalent first second) (capability : Capability)
+      (hMember : (config, capability) ∈ first) :
+      ∃ other, (config, other) ∈ second ∧ capLe other capability := by
+    have hMarked : markedAt first config capability = true :=
+      (markedAt_iff first config capability).mpr ⟨capability, hMember, capLe_refl _⟩
+    exact (markedAt_iff second config capability).mp
+      (hLookup config capability ▸ hMarked)
+  have hMinimal (capability : Capability) :
+      capability ∈ minimalCapabilities left config ↔
+        capability ∈ minimalCapabilities right config := by
+    rw [mem_minimalCapabilities_iff, mem_minimalCapabilities_iff]
+    exact minimalCap_iff_of_mutual_cofinality _ _
+      (hCofinal left right hEquivalent) (hCofinal right left (fun c t => (hEquivalent c t).symm))
+      capability
+  unfold minimalCapabilities
+  apply List.filter_congr
+  intro capability _
+  have hMember := hMinimal capability
+  have hCap : capability ∈ capabilities := by cases capability <;> simp [capabilities]
+  simp only [minimalCapabilities, List.mem_filter, hCap, true_and] at hMember
+  exact Bool.eq_iff_iff.mpr hMember
+
+private lemma lookupEquivalent_T (left right : CapabilityTable State)
+    (hEquivalent : lookupEquivalent left right) (config : ReadyConfig State) :
+    capabilityConfigMem (config, .T) left = capabilityConfigMem (config, .T) right := by
+  apply Bool.eq_iff_iff.mpr
+  have hT (marked : CapabilityTable State) :
+      markedAt marked config .T = true ↔ capabilityConfigMem (config, .T) marked = true := by
+    rw [markedAt_iff, capabilityConfigMem_iff]
+    constructor
+    · rintro ⟨candidate, hMember, hLe⟩
+      cases candidate <;> simp [capLe] at hLe ⊢
+      exact hMember
+    · intro hMember
+      exact ⟨.T, hMember, capLe_refl _⟩
+  rw [← hT left, ← hT right, hEquivalent]
+
+private lemma capabilityTableUntil_stable (lts : CCS.FiniteLTS Action State)
+    (domain marked : CapabilityTable State)
+    (hStable : saturateStep domain capabilityConfigMem
+      (fun marked entry => marks lts marked entry.1 entry.2) marked = marked)
+    (fuel : Nat) : capabilityTableUntil lts domain fuel marked = marked := by
+  cases fuel with
+  | zero => rfl
+  | succ fuel => simp [capabilityTableUntil, hStable]
+
+private lemma lookupEquivalent_of_pruned_stable (lts : CCS.FiniteLTS Action State)
+    (domain left right : CapabilityTable State)
+    (hStable : prunedCapabilityStep lts domain left = left)
+    (hEquivalent : lookupEquivalent left right) (fuel : Nat) :
+    lookupEquivalent left (capabilityTableUntil lts domain fuel right) := by
+  induction fuel generalizing right with
+  | zero => exact hEquivalent
+  | succ fuel ih =>
+      rw [capabilityTableUntil]
+      split_ifs with hRawStable
+      · exact hEquivalent
+      · exact ih _ (by simpa only [hStable] using
+          lookupEquivalent_step lts domain left right hEquivalent)
+
+private lemma minimalCapabilitiesUntil_eq (lts : CCS.FiniteLTS Action State)
+    (domain : List (CapabilityConfig State)) (config : ReadyConfig State)
+    (fuel : Nat) (left right : CapabilityTable State)
+    (hEquivalent : lookupEquivalent left right) :
+    minimalCapabilitiesUntil lts domain config fuel left =
+      minimalCapabilities (capabilityTableUntil lts domain fuel right) config := by
+  induction fuel generalizing left right with
+  | zero => exact minimalCapabilities_eq_of_lookup left right config hEquivalent
+  | succ fuel ih =>
+      by_cases hT : capabilityConfigMem (config, .T) left = true
+      · have hRight : (config, .T) ∈ right :=
+          (capabilityConfigMem_iff _ _).mp
+            ((lookupEquivalent_T left right hEquivalent config).symm ▸ hT)
+        have hFinal : capabilityConfigMem (config, .T)
+            (capabilityTableUntil lts domain (fuel + 1) right) = true :=
+          (capabilityConfigMem_iff _ _).mpr
+            (mem_capabilityTableUntil_of_mem lts domain (fuel + 1) right (config, .T) hRight)
+        simp [minimalCapabilitiesUntil, hT,
+          minimalCapabilities_eq_T_of_mem _ _ hFinal]
+      · have hFalse : capabilityConfigMem (config, .T) left = false :=
+          Bool.eq_false_iff.mpr hT
+        let expanded := prunedCapabilityStep lts domain left
+        have hStep := lookupEquivalent_step lts domain left right hEquivalent
+        by_cases hPrunedStable : expanded = left
+        · have hFinal := lookupEquivalent_of_pruned_stable lts domain left right
+            hPrunedStable hEquivalent (fuel + 1)
+          simpa [minimalCapabilitiesUntil, hFalse, expanded, hPrunedStable] using
+            (minimalCapabilities_eq_of_lookup left _ config hFinal)
+        · simp only [minimalCapabilitiesUntil, hFalse, Bool.false_eq_true, ↓reduceIte]
+          change (if expanded = left then minimalCapabilities left config
+            else minimalCapabilitiesUntil lts domain config fuel expanded) = _
+          simp only [hPrunedStable, ↓reduceIte]
+          rw [capabilityTableUntil]
+          by_cases hRawStable : saturateStep domain capabilityConfigMem
+              (fun marked entry => marks lts marked entry.1 entry.2) right = right
+          · simp only [hRawStable, ↓reduceIte]
+            rw [← capabilityTableUntil_stable lts domain right hRawStable fuel]
+            exact ih expanded right (by simpa [expanded, hRawStable] using hStep)
+          · simp only [hRawStable, ↓reduceIte]
+            exact ih expanded _ (by simpa [expanded] using hStep)
+
 /-- Every entry computed by the finite Ready table has a concrete lfp observation. -/
 lemma capabilityTable_raw_sound
     {Name : Type w}
@@ -2041,19 +2434,6 @@ lemma capabilityTable_raw_sound
     (fun hSubset item hMarks => marksSet_mono lts hSubset item.1 item.2 hMarks)
     semantic hPrefixed
   exact hSemantic hLfp
-
-omit [DecidableEq Action] in
-/-- Filtering an action list selects a member of its list-valued powerset. -/
-lemma filter_mem_listPowerset (actions : List Action) (selected : Action → Bool) :
-    actions.filter selected ∈ listPowerset actions := by
-  induction actions with
-  | nil => simp [listPowerset]
-  | cons action actions ih =>
-      change (action :: actions).filter selected ∈
-        listPowerset actions ++ (listPowerset actions).map (action :: ·)
-      by_cases hSelected : selected action = true
-      · simp [hSelected, ih]
-      · simp [hSelected, ih]
 
 /-- Refusal-only semantic steps use the all-negative assignment in the root query table. -/
 lemma refusal_only_step_cofinal
@@ -2827,7 +3207,10 @@ private theorem readyCapabilities_correct_skeleton
     minimalCap_iff_of_sound_and_cofinal finiteRaw semanticRaw raw_sound raw_cofinal capability
   have finite_minimal :
       capability ∈ readyCapabilities lts state competitors ↔ minimalCap finiteRaw capability := by
-    simpa [readyCapabilities, finiteRaw] using
+    rw [readyCapabilities, minimalCapabilitiesUntil_eq lts
+      (capabilityConfigs (queryConfigs lts state competitors)) (state, competitors)
+      _ [] [] (fun _ _ => rfl)]
+    simpa [capabilityTable, finiteRaw] using
       (mem_minimalCapabilities_iff (capabilityTable lts state competitors) (state, competitors) capability)
   have semantic_minimal :
       minimalCap semanticRaw capability ↔
