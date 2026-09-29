@@ -54,7 +54,7 @@ This repository contains a Lean formalization of how [generalized equivalence ch
 
 4. Tests and benchmarks.
 
-    The LTBTS benchmark (`bash tests/ltbts1.sh`) shuffles all directed examples over five rounds and reports each example's median runtime.
+    The LTBTS benchmark (`bash tests/ltbts1.sh`) shuffles all directed examples over five rounds and reports each example's median runtime and median peak resident memory (KiB). It requires GNU `/usr/bin/time`.
 
     Run the executable interface regression test with `bash tests/main.sh`.
 

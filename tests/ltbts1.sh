@@ -5,7 +5,9 @@ cd "$(dirname "$0")/.."
 lake build Main
 binary=.lake/build/bin/Main
 report=${REPORT:-tests/ltbts1.results}
-printf 'left,right,seconds,preorders,status\n' > "$report"
+rss_file=$(mktemp)
+trap 'rm -f "$rss_file"' EXIT
+printf 'left,right,seconds,median_peak_rss_kb,preorders,status\n' > "$report"
 
 pairs=(
   'L13 R13'
@@ -20,7 +22,7 @@ pairs=(
   'L50 R50'
 )
 
-declare -A times preorders_for statuses
+declare -A times rss_samples preorders_for statuses
 examples=()
 for pair in "${pairs[@]}"; do
   read -r left right <<< "$pair"
@@ -28,16 +30,18 @@ for pair in "${pairs[@]}"; do
 done
 
 run_pair() {
-  local left=$1 right=$2 output exit_code elapsed_ms preorders status key
+  local left=$1 right=$2 output exit_code elapsed_ms peak_rss_kb preorders status key
   local start end
   start=$(date +%s%N)
-  if output=$(timeout 30s "$binary" ready assets/ltbts1.csv "$left" "$right" --finest 2>&1); then
+  if output=$(/usr/bin/time -f '%M' -o "$rss_file" \
+      timeout 30s "$binary" ready assets/ltbts1.csv "$left" "$right" --finest 2>&1); then
     exit_code=0
   else
     exit_code=$?
   fi
   end=$(date +%s%N)
   elapsed_ms=$(((end - start) / 1000000))
+  peak_rss_kb=$(< "$rss_file")
 
   preorders=
   if ((exit_code == 124)); then
@@ -55,6 +59,7 @@ run_pair() {
 
   key="$left $right"
   times[$key]="${times[$key]-}$elapsed_ms "
+  rss_samples[$key]="${rss_samples[$key]-}$peak_rss_kb "
   if [[ "$status" == ok ]]; then
     if [[ -n "${preorders_for[$key]-}" && "${preorders_for[$key]}" != "$preorders" ]]; then
       statuses[$key]=error
@@ -81,8 +86,11 @@ for pair in "${examples[@]}"; do
   read -r -a samples <<< "${times[$pair]}"
   mapfile -t sorted < <(printf '%s\n' "${samples[@]}" | sort -n)
   median_ms=${sorted[2]}
-  printf '%s,%s,%d.%03d,"%s",%s\n' "$left" "$right" \
-    "$((median_ms / 1000))" "$((median_ms % 1000))" \
+  read -r -a samples <<< "${rss_samples[$pair]}"
+  mapfile -t sorted < <(printf '%s\n' "${samples[@]}" | sort -n)
+  median_rss_kb=${sorted[2]}
+  printf '%s,%s,%d.%03d,%s,"%s",%s\n' "$left" "$right" \
+    "$((median_ms / 1000))" "$((median_ms % 1000))" "$median_rss_kb" \
     "${preorders_for[$pair]-}" "${statuses[$pair]-ok}" >> "$report"
 done
 
