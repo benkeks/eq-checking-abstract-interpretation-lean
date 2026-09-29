@@ -16,8 +16,8 @@ check_output() {
   fi
 }
 
-check_output 'tracePreordered(5, 15) = true' trace assets/peterson_mutex_5_15.csv 5 15
-check_output 'tracePreordered(15, 2) = false' trace assets/peterson_mutex_5_15.csv 15 2
+check_output 'tracePreordered(Peterson, Spec) = true' trace assets/peterson_mutex.csv Peterson Spec
+check_output 'tracePreordered(15, 2) = false' trace assets/peterson_mutex.csv 15 2
 check_output 'Holding preorders for (0, 0): trace, simulation, failure, ready-simulation' \
   ready tests/ready_modes.csv 0 0
 check_output 'Holding preorders for (0, 1): trace, simulation' ready tests/ready_modes.csv 0 1

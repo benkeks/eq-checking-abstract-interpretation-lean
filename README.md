@@ -33,7 +33,7 @@ This repository contains a Lean formalization of how [generalized equivalence ch
     In `trace` mode, the executable prints a Boolean trace-preorder decision:
 
     ```bash
-    lake exe Main trace assets/peterson_mutex_5_15.csv 5 15
+    lake exe Main trace assets/peterson_mutex.csv Peterson Spec
     lake exe Main trace assets/ltbts1.csv L27 R27
     ```
 
