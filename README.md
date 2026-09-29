@@ -41,14 +41,22 @@ This repository contains a Lean formalization of how [generalized equivalence ch
 
     ```bash
     lake exe Main ready tests/ready_modes.csv Left Right
-    # Holding preorders for (Left, Right): trace, failures
+    # Holding preorders for (Left, Right): trace, failure
+    lake exe Main ready tests/ready_modes.csv Left Right --finest
+    # Finest preorders for (Left, Right): failure
     ```
 
     The Ready hierarchy consists of trace, simulation, failures, and ready simulation.
     A preorder holds when no minimal distinguishing capability is below its threshold;
     `none` means none of the four hold.
+    With `--finest`, only finest holding preorders are reported; incomparable
+    preorders can both appear.
 
-Run the executable interface regression test with `bash tests/main.sh`.
+4. Tests and benchmarks.
+
+    The LTBTS benchmark (`bash tests/ltbts1.sh`) shuffles all directed examples over five rounds and reports each example's median runtime.
+
+    Run the executable interface regression test with `bash tests/main.sh`.
 
 ## Documentation
 

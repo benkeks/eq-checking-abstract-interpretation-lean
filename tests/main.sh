@@ -29,6 +29,14 @@ check_output 'Holding preorders for (Right, Left): trace, simulation' \
   ready tests/ready_modes.csv Right Left
 check_output 'Holding preorders for (Left, 1): none' \
   ready tests/ready_modes.csv Left 1
+check_output 'Finest preorders for (0, 0): ready-simulation' \
+  ready tests/ready_modes.csv 0 0 --finest
+check_output 'Finest preorders for (Left, Right): failure' \
+  ready tests/ready_modes.csv Left Right --finest
+check_output 'Finest preorders for (Right, Left): simulation' \
+  ready tests/ready_modes.csv Right Left --finest
+check_output 'Finest preorders for (Left, 1): none' \
+  ready tests/ready_modes.csv Left 1 --finest
 check_output 'tracePreordered(Left, Right) = true' trace tests/ready_modes.csv Left Right
 check_output 'tracePreordered(Idle, Idle) = true' trace tests/ready_modes.csv Idle Idle
 check_output 'tracePreordered(L27, R27) = true' trace assets/ltbts1.csv L27 R27
@@ -37,8 +45,10 @@ check_output 'Holding preorders for (L21, R21): trace, failure' \
 check_output "Input error: unknown state name 'Missing'" trace tests/ready_modes.csv Missing Right
 check_output "Input error: unknown mode 'unknown' (expected trace or ready)" \
   unknown tests/ready_modes.csv 0 1
-check_output 'Usage: Main <trace|ready> <transitions.csv> <left-state> <right-state>' \
+check_output 'Usage: Main <trace|ready> <transitions.csv> <left-state> <right-state> [--finest (ready only)]' \
   tests/ready_modes.csv 0 1
+check_output 'Usage: Main <trace|ready> <transitions.csv> <left-state> <right-state> [--finest (ready only)]' \
+  trace tests/ready_modes.csv 0 1 --finest
 
 bad_csv=$(mktemp)
 trap 'rm -f "$bad_csv"' EXIT

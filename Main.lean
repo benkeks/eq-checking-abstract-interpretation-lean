@@ -86,15 +86,16 @@ private def preorderName : Ready.Capability → String
   | .F => "failure"
   | .RS => "ready-simulation"
 
-private def holdingReadyPreorders (lts : FiniteLTS String Nat) (left right : Nat) : List String :=
+private def holdingReadyPreorders (lts : FiniteLTS String Nat) (left right : Nat) :
+    List Ready.Capability :=
   let minimal := Ready.FiniteLTS.readyCapabilities lts left {right}
-  (Ready.FiniteLTS.capabilities.filter (fun threshold =>
-    !minimal.any (fun requirement => Ready.FiniteLTS.capLeBool requirement threshold))).map preorderName
+  Ready.FiniteLTS.capabilities.filter (fun threshold =>
+    !minimal.any (fun requirement => Ready.FiniteLTS.capLeBool requirement threshold))
 
 private def usage : String :=
-  "Usage: Main <trace|ready> <transitions.csv> <left-state> <right-state>"
+  "Usage: Main <trace|ready> <transitions.csv> <left-state> <right-state> [--finest (ready only)]"
 
-private def run (mode csvPath leftStateText rightStateText : String) : IO Unit := do
+private def run (mode csvPath leftStateText rightStateText : String) (finest := false) : IO Unit := do
   try
     match parseTransitions (← IO.FS.readFile csvPath) with
     | .error message => IO.eprintln s!"CSV parse error: {message}"
@@ -112,8 +113,13 @@ private def run (mode csvPath leftStateText rightStateText : String) : IO Unit :
           IO.println s!"tracePreordered({leftStateText}, {rightStateText}) = {FiniteLTS.tracePreordered lts leftState rightState}"
         else
           let preorders := holdingReadyPreorders lts leftState rightState
+          let preorders := if finest then preorders.filter (fun threshold =>
+            !preorders.any (fun finer => !(decide (threshold = finer)) &&
+              Ready.FiniteLTS.capLeBool threshold finer)) else preorders
+          let preorders := preorders.map preorderName
           let names := if preorders.isEmpty then "none" else String.intercalate ", " preorders
-          IO.println s!"Holding preorders for ({leftStateText}, {rightStateText}): {names}"
+          let label := if finest then "Finest preorders" else "Holding preorders"
+          IO.println s!"{label} for ({leftStateText}, {rightStateText}): {names}"
   catch exception =>
     IO.eprintln s!"Unable to read '{csvPath}': {exception}"
 
@@ -123,5 +129,7 @@ def main (args : List String) : IO Unit := do
     run "trace" csvPath leftStateText rightStateText
   | ["ready", csvPath, leftStateText, rightStateText] =>
     run "ready" csvPath leftStateText rightStateText
+  | ["ready", csvPath, leftStateText, rightStateText, "--finest"] =>
+    run "ready" csvPath leftStateText rightStateText true
   | [mode, _, _, _] => IO.eprintln s!"Input error: unknown mode '{mode}' (expected trace or ready)"
   | _ => IO.eprintln usage
