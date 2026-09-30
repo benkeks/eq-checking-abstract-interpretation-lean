@@ -562,15 +562,7 @@ structure AbstractDiffCorrect
     (decode : State → CCS Action Name) : Prop where
   realizes : CCS.FiniteLTS.Realizes lts env decode
 
-/-- A realization supplies the Trace evaluator correctness certificate. -/
-def abstractDiffCorrect_of_realizes
-    {Name : Type w}
-    (lts : CCS.FiniteLTS Action State)
-    (env : Env Action Name)
-    (decode : State → CCS Action Name)
-    (realizes : CCS.FiniteLTS.Realizes lts env decode) :
-    AbstractDiffCorrect lts env decode :=
-  ⟨realizes⟩
+
 
 /-- Generic connection from a realized executable finite model to `AbstractDiff`. -/
 theorem abstractDiff_correct

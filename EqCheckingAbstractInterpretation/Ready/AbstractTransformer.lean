@@ -90,7 +90,7 @@ theorem abstractDRSRawExplicit_spec
           cases hq
         · intro q hq
           exact False.elim (hDRS q hq)
-        · simpa [reqOfObs, childrenReq, req] using hCap
+        · simpa [rsObsCap, reqOfObs, nodeRequirement, childrenReq, req, capJoin] using hCap
     | node pos neg =>
         rcases hDRS with ⟨Qneg, Qpos, hPos, hNegP, hNegQ, hCover⟩
         refine ⟨pos, neg, Qneg, Qpos, ?_, hNegP, hNegQ, hCover, hCap⟩
@@ -118,8 +118,8 @@ theorem abstractDRSExplicit_iff
     intro d hd hdLe
     exact h.2 d ((abstractDRSRawExplicit_spec env ρa p Q d).1 hd) hdLe
 
-  /-- The explicit paper-style transformer equals `abstractDRS` by extensionality. -/
-  theorem abstractDRSExplicit_eq_abstractDRS
+/-- The explicit paper-style transformer equals `abstractDRS` by extensionality. -/
+theorem abstractDRSExplicit_eq_abstractDRS
     (env : Env Action Name)
     (ρa : AbsSysRS Action Name) :
     abstractDRSExplicit env ρa = abstractDRS env ρa := by

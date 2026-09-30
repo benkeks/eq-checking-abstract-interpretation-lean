@@ -834,7 +834,7 @@ lemma lfpDRS_tt_of_empty
   apply lfpDRS_prefixpoint
   simp [DRS]
 
-omit [DecidableEq Action] in
+omit [DecidableEq Action] [DecidableEq State] in
 /-- An empty finite competitor set is semantically witnessed by raw capability `T`. -/
 lemma empty_competitors_raw_sound
     {Name : Type w}
@@ -867,7 +867,7 @@ lemma raw_sound_of_lfpDRS
     alphaCapRaw rsObsCap (lfpDRS env process competitors) capability :=
   ⟨observation, hObservation, hCapability⟩
 
-omit [DecidableEq Action] in
+omit [DecidableEq Action] [DecidableEq State] in
 /-- The empty-competitor finite marking rule is sound for the raw Ready abstraction. -/
 lemma empty_mark_raw_sound
     {Name : Type w}
@@ -963,7 +963,7 @@ lemma mem_configInsert_iff (config entry : ReadyConfig State)
     (configs : List (ReadyConfig State)) :
     entry ∈ configInsert config configs ↔ entry = config ∨ entry ∈ configs := by
   by_cases hConfig : config ∈ configs
-  · rw [configInsert, if_pos ((configMem_iff config configs).mpr hConfig)]
+  · rw [configInsert, ite_eq_left ((configMem_iff config configs).mpr hConfig)]
     constructor
     · exact Or.inr
     · rintro (rfl | hEntry)
@@ -1267,7 +1267,7 @@ lemma tableStep_queryConfigStepSet_eq_tableStep
     tableStep domain (queryConfigStepSet lts seed) marked =
       tableStep domain (configStepSet lts) marked := by
   ext config
-  simp only [tableStep, Set.mem_union, Set.mem_setOf_eq, queryConfigStepSet]
+  simp only [tableStep, Set.mem_union, Set.mem_ofPred_eq, queryConfigStepSet]
   constructor
   · rintro (hMarked | ⟨hDomain, hSeedConfig | hSuccessor⟩)
     · exact Or.inl hMarked
@@ -1352,7 +1352,7 @@ lemma queryConfigsN_toFinset_eq_tableIter
   | zero =>
       ext config
       simp only [queryConfigsN, tableIter,
-        tableStep, Set.mem_union, Set.mem_empty_iff_false, false_or, Set.mem_setOf_eq,
+        tableStep, Set.mem_union, Set.mem_empty_iff_false, false_or, Set.mem_ofPred_eq,
         queryConfigStepSet, configStepSet]
       constructor
       · intro hConfig
@@ -1563,9 +1563,9 @@ private lemma listPowerset_member_subset (actions negative : List Action)
         · exact List.mem_cons_self
         · exact List.mem_cons_of_mem head (ih selected hSelectedTail action hAction)
 
-    omit [DecidableEq Action] in
-    /-- Filtering an action list selects a member of its list-valued powerset. -/
-    lemma filter_mem_listPowerset (actions : List Action)
+omit [DecidableEq Action] in
+/-- Filtering an action list selects a member of its list-valued powerset. -/
+lemma filter_mem_listPowerset (actions : List Action)
     (selected : Action → Bool) :
     actions.filter selected ∈ listPowerset actions := by
   induction actions with
@@ -1694,7 +1694,7 @@ private lemma marksWithRefusals_eq (lts : CCS.FiniteLTS Action State)
           simp only [Bool.and_eq_true] at hAssignment ⊢
           refine ⟨⟨?_, negativeAssignmentValid_mono lts competitors assignment negative
             disabled hSubset hAssignment.1.2⟩, hAssignment.2⟩
-          simpa [branchesRequirement, hShape] using hAssignment.1.1
+          simpa [branchesRequirement, hShape] using (of_decide_eq_true hAssignment.1.1)
         refine ⟨disabled, by simp [refusalChoices, disabled], ?_⟩
         simpa only [accept, Bool.and_eq_true] using
           (show marks.refuses lts config.1 disabled = true ∧
@@ -1704,9 +1704,11 @@ private lemma marksWithRefusals_eq (lts : CCS.FiniteLTS Action State)
                 negativeAssignmentValid lts competitors disabled assignment &&
                   branchesValid lts marked config.1 branches) = true from
             ⟨hFullRefuses, hFullAssignments⟩)
-  simpa only [marksWithRefusals, marks, competitors, choices, accept] using
-    congrArg (fun result =>
-      (decide (config.2 = ∅) && decide (capability = .T)) || result) hSearch
+  change ((decide (config.2 = ∅) && decide (capability = .T)) ||
+      (refusalChoices lts config.1).any accept) =
+    ((decide (config.2 = ∅) && decide (capability = .T)) ||
+      (listPowerset lts.actions).any accept)
+  rw [hSearch]
 
 private lemma branchesValid_congr (lts : CCS.FiniteLTS Action State)
     (left right : CapabilityTable State)
@@ -1969,7 +1971,7 @@ lemma marksSet_raw_sound
               branch.action) (childObs branch) ∧
           capLe (reqOfObs (childObs branch)) branch.capability := by
       intro branch hBranch
-      simpa only [childObs, dif_pos hBranch] using Classical.choose_spec (hChildren branch hBranch)
+      simpa only [childObs, dite_eq_left hBranch] using Classical.choose_spec (hChildren branch hBranch)
     let pos := branches.map (fun branch => (branch.action, childObs branch))
     have hPosLength : pos.length = branches.length := by simp [pos]
     have hDRS : DRS env (lfpDRS env) (decode config.1)
@@ -2796,9 +2798,9 @@ lemma semantic_node_choices
   have hSource := (mem_competitorsOf_iff lts config.2 source).mp hListed |>.2
   have hCovered := hCover (decode source) (hSubset (decode source) ⟨source, hSource, rfl⟩)
   by_cases hPositive : ∃ index, Qpos index (decode source)
-  · simpa only [choice, dif_pos hPositive] using Classical.choose_spec hPositive
+  · simpa only [choice, dite_eq_left hPositive] using Classical.choose_spec hPositive
   · rcases hCovered with hNegative | hPositive'
-    · simpa only [choice, dif_neg hPositive] using hNegative
+    · simpa only [choice, dite_eq_right hPositive] using hNegative
     · exact (hPositive hPositive').elim
 
 /-- Assign semantic positive indices to slots with their observation labels. -/
@@ -2820,7 +2822,7 @@ private lemma nodeChoiceAssignment_wellFormed
   | cons source listed ih =>
       cases hChoice : choice source with
       | none =>
-          simpa [nodeChoiceAssignment, hChoice] using ih (fun other hOther index hIndex =>
+          simpa [nodeChoiceAssignment, assignmentWellFormed, hChoice] using ih (fun other hOther index hIndex =>
             hSlots other (by simp [hOther]) index hIndex)
       | some index =>
           simp only [nodeChoiceAssignment, List.map_cons, hChoice, Option.map_some,

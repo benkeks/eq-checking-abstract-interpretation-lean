@@ -548,7 +548,8 @@ theorem lfpDRS_PA_PB_obs_a_neg_b :
               exact ⟨RunAct.b, List.mem_cons.mpr (Or.inl rfl), PBb0_b_enabled⟩
           · intro q hq
             exact Or.inl hq
-        simpa using hChild
+        change ρ PA (DerivSetOf runEnv {PB} .a) obs_neg_b
+        exact hChild
     | succ val =>
       simp at hval
   · intro x hb
@@ -596,7 +597,8 @@ theorem lfpDRS_PBb0_DerivPAa_obs_split_ab :
             rcases hq with ⟨r, hr, hDer⟩
             subst hr
             exact b0_a_not_enabled ⟨q, hDer⟩
-          simpa using hChild
+          change ρ PBb0 (DerivSetOf runEnv {b0} .a) .tt
+          exact hChild
     | succ n =>
         cases n with
         | zero =>
@@ -608,7 +610,8 @@ theorem lfpDRS_PBb0_DerivPAa_obs_split_ab :
                 rcases hq with ⟨r, hr, hDer⟩
                 subst hr
                 exact PA_b_not_enabled ⟨q, hDer⟩
-              simpa using hChild
+              change ρ (.zero : RunProc) (DerivSetOf runEnv {PA} .b) .tt
+              exact hChild
         | succ n =>
             have hge : 2 ≤ n.succ.succ := by
               exact Nat.succ_le_succ (Nat.succ_le_succ (Nat.zero_le n))
@@ -642,7 +645,8 @@ theorem lfpDRS_PB_PA_obs_a_split_ab :
         refine ⟨PBb0, PB_a_PBb0, ?_⟩
         have hChild : ρ PBb0 (DerivSetOf runEnv {PA} .a) obs_split_ab := by
           exact lfpDRS_PBb0_DerivPAa_obs_split_ab ρ hρ
-        simpa using hChild
+        change ρ PBb0 (DerivSetOf runEnv {PA} .a) obs_split_ab
+        exact hChild
     | succ val =>
       simp at hval
   · intro x hb

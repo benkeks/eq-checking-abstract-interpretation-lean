@@ -239,7 +239,8 @@ theorem lfpDRSAbsExactCanon_prefixpoint
   have hUp : upClosure (lfpDRSAbsExactCanon env p Q) c := by
     exact (upClosure_alphaCap_iff_alphaCapRaw
       rsObsCap rsObsCapMonotone (lfpDRS env p Q) c).2 ⟨o', hLfp, capLe_trans hLe hCap⟩
-  simpa [lfpDRSAbsExactCanon] using hUp
+  rcases hUp with ⟨d, hd, hdLe⟩
+  exact ⟨d, (lfpDRSAbsExactCanon_spec env p Q d).1 hd, hdLe⟩
 
 theorem below_all_abstract_prefixpoints_iff_alphaCapRaw_lfpDRS
     (env : Env Action Name)
@@ -253,9 +254,10 @@ theorem below_all_abstract_prefixpoints_iff_alphaCapRaw_lfpDRS
   · intro hAll
     have hUp : upClosure (lfpDRSAbsExactCanon env p Q) c :=
       hAll (lfpDRSAbsExactCanon env) (lfpDRSAbsExactCanon_prefixpoint env)
-    exact (upClosure_alphaCap_iff_alphaCapRaw
+    apply (upClosure_alphaCap_iff_alphaCapRaw
       rsObsCap rsObsCapMonotone (lfpDRS env p Q) c).1
-      (by simpa [lfpDRSAbsExactCanon] using hUp)
+    rcases hUp with ⟨d, hd, hdLe⟩
+    exact ⟨d, (lfpDRSAbsExactCanon_spec env p Q d).1 hd, hdLe⟩
   · intro hRaw ρa hρa
     rcases hRaw with ⟨o, hLfpObs, hCap⟩
     have hGamma : gammaDRSAbs ρa p Q o := by

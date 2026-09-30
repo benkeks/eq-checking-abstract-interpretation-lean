@@ -37,7 +37,7 @@ structure Realizes
         decode target = process
 
 /-- Interpret a finite competitor list as a predicate on decoded CCS processes. -/
-def decodeSet {Name : Type w} [DecidableEq State] (decode : State → CCS Action Name)
+def decodeSet {Name : Type w} (decode : State → CCS Action Name)
   (competitors : Finset State) : ProcSet Action Name :=
   fun process => ∃ state, state ∈ competitors ∧ decode state = process
 

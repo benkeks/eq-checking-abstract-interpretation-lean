@@ -11,4 +11,4 @@ lean_lib EqCheckingAbstractInterpretation where
 lean_exe Main where
   root := `Main
 
-require mathlib from git "https://github.com/leanprover-community/mathlib4.git" @ "v4.29.1"
+require mathlib from git "https://github.com/leanprover-community/mathlib4.git" @ "v4.34.1"

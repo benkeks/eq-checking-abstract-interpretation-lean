@@ -300,7 +300,7 @@ theorem thresholdWitness_alphaCap_iff
       ⟨c, minimalCap_left _ hc, hLe⟩
   · intro h
     rcases h with ⟨o, hX, hObsN⟩
-    simpa [alphaCap] using thresholdWitness_minimalCap_of_mem
+    exact thresholdWitness_minimalCap_of_mem
       (alphaCapRaw ObsCap X)
       N
       ⟨o, hX, hObsN⟩

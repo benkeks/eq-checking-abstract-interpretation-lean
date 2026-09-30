@@ -60,7 +60,7 @@ jobs:
           [[require]]
           scope = "leanprover"
           name = "doc-gen4"
-          rev = "v4.29.1"
+          rev = "v4.34.1"
           EOF
           cp lean-toolchain docbuild/lean-toolchain
           cd docbuild
