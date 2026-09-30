@@ -196,10 +196,12 @@ def runReadyFailsAt (threshold : Capability) (state : RunProc)
     (competitors : StateSet RunProc) : Bool :=
   failsAt runLTS threshold state competitors
 
+/--
 #eval runReadyCapabilities PA {PB}
 #eval runReadyCapabilities PB {PA}
 #eval runReadyFailsAt .F PA {PB}
 #eval runReadyFailsAt .S PB {PA}
+-/
 
 lemma runReadyCapabilities_PA_PB : runReadyCapabilities PA {PB} = [.F] := by native_decide
 lemma runReadyCapabilities_PB_PA : runReadyCapabilities PB {PA} = [.S] := by native_decide

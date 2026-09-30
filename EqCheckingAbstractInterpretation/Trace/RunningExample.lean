@@ -130,9 +130,11 @@ open FiniteLTS
 def runAbstractDiff (state : RunProc) (competitors : StateSet RunProc) : Bool :=
   FiniteLTS.abstractDiff runLTS state competitors
 
+/--
 #eval runAbstractDiff PA {PB}
 #eval FiniteLTS.tracePreordered runLTS PA PB
 #eval runAbstractDiff PBb0 {b0}
+-/
 
 theorem runAbstractDiff_PA_PB : runAbstractDiff PA {PB} = false := by native_decide
 theorem runAbstractDiff_PBb0_b0 : runAbstractDiff PBb0 {b0} = true := by native_decide
