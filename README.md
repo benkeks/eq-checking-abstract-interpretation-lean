@@ -62,6 +62,8 @@ This repository contains a Lean formalization of how [generalized equivalence ch
 
 The GitHub Pages workflow builds Lean API documentation with `doc-gen4` and publishes it under the deployed site `docs/` path to <https://eq-checking-as-abstract-interpretation.equiv.io/>.
 
+In the [paper](https://eq-checking-as-abstract-interpretation.equiv.io/process-equivalence-checking-as-abstract-interpretation.pdf), Section 2, "Trace Semantics," contains Definition 6 ("Concrete predecessor transformer for trace differences") and Proposition 1 ("Concrete trace difference as least fixpoint"). Section 4, "Simulation, Failures, and Ready Simulation," contains Proposition 2 ("Concrete ready-simulation difference as least fixpoint"); Section 5, "Checking Hierarchies of Equivalences in One Abstract Interpretation," contains Theorem 2 ("Exactness for capability-threshold checking").
+
 ## Current Formalization Scope
 
 The formalization currently covers four layers.
@@ -74,8 +76,8 @@ The formalization currently covers four layers.
 
 2. Concrete ready-simulation differences.
     - `Ready/ConcreteTransformer.lean` defines the concrete predecessor transformer `DRS` and its least fixpoint `lfpDRS`.
-    - `Ready/ConcreteDifference.lean` defines the concrete RS difference object `RSDifferenceToSet` from `lfpDRS`.
-    - `Ready/Denotational.lean` gives an independent denotational characterization `rsDifferenceDenotational` and proves `rsDifferenceDenotational_eq_lfpDRS`.
+    - `Ready/ConcreteDifference.lean` defines single-process satisfaction `RSSem`, defines `RSDifferenceToSet` as the difference of those denotations, and proves `rsDifferenceToSet_eq_lfpDRS` (paper Proposition 2).
+    - `Ready/Denotational.lean` characterizes the same difference via finite certificates (`rsDifferenceDenotational_iff_rsDifferenceToSet`).
 
 3. Unified capability-threshold abstraction.
     - `Ready/Basic.lean` formalizes the capability lattice and generic threshold theorems (`..._of_alpha`, `..._of_lfp`).

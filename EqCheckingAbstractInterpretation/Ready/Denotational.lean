@@ -1,4 +1,4 @@
-import EqCheckingAbstractInterpretation.Ready.ConcreteTransformer
+import EqCheckingAbstractInterpretation.Ready.ConcreteDifference
 
 namespace EqCheckingAbstractInterpretation.Ready
 
@@ -22,7 +22,8 @@ Key idea:
 - `rsDifferenceDenotational` is defined as **exists valid certificate** (no recursion)
 - Equivalence to `lfpDRS` is then proven by relating valid certificates to lfp membership
 
-This mirrors the paper's denotational definition while sidestepping Lean's termination constraints.
+The certificate characterization is equivalent to the independent single-process
+denotation defined in `ConcreteDifference`.
 -/
 
 /--
@@ -219,5 +220,15 @@ theorem rsDifferenceDenotational_eq_lfpDRS
     exact isValidCert_implies_lfp env p Q cert hValid
   · intro h_lfp
     exact lfp_implies_isValidCert env p Q o h_lfp
+
+/-- Finite certificates characterize the difference of single-process denotations. -/
+theorem rsDifferenceDenotational_iff_rsDifferenceToSet
+    (env : Env Action Name)
+    (p : CCS Action Name)
+    (Q : ProcSet Action Name)
+    (o : RSObs Action) :
+    rsDifferenceDenotational env p Q o ↔ RSDifferenceToSet env p Q o := by
+  exact (rsDifferenceDenotational_eq_lfpDRS env p Q o).trans
+    (rsDifferenceToSet_eq_lfpDRS env p Q o).symm
 
 end EqCheckingAbstractInterpretation.Ready

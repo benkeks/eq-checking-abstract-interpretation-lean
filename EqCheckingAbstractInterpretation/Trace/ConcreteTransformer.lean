@@ -3,8 +3,8 @@ import EqCheckingAbstractInterpretation.Trace.Basic
 /-!
 # Concrete Trace Difference Transformer
 
-This file formalizes the "Concrete Trace Differences" subsection of the note
-(Definition 2.6 and Proposition 2.7):
+This file formalizes the paper's "Concrete Trace Differences" subsection
+(Definition 6 and Proposition 1):
 
 - `DiffSys`: the space of difference systems `DS = (CCS × ProcSet) → TraceSet`,
   ordered pointwise by subset inclusion.
@@ -26,7 +26,7 @@ universe u v
 
 variable {Action : Type u} {Name : Type v}
 
-/-- A *difference system* maps each pair `(p, Q)` to a set of traces (Def 2.6 in the note). -/
+/-- A *difference system* maps each pair `(p, Q)` to a set of traces (paper Definition 6). -/
 abbrev DiffSys (Action : Type u) (Name : Type v) :=
   CCS Action Name → (CCS Action Name → Prop) → Trace Action → Prop
 
@@ -35,7 +35,7 @@ def DiffSysLe (ρ σ : DiffSys Action Name) : Prop :=
   ∀ p Q tr, ρ p Q tr → σ p Q tr
 
 /--
-The concrete predecessor transformer `D_Tr` (Definition 2.6).
+The concrete predecessor transformer `D_Tr` (paper Definition 6).
 
 `DTr env ρ p Q tr` is defined inductively on the structure of the trace `tr`:
 - `tr = []` (the empty observation `⊤`): holds iff `Q = ∅`, because `⊤` is
@@ -85,7 +85,7 @@ theorem lfpDTr_prefixpoint (env : Env Action Name) :
 /--
 `TraceDifferenceToSet env` is a pre-fixpoint of `DTr env`.
 This is the key step (Part 2, "least among pre-fixpoints") in the proof of
-Proposition 2.7: any pre-fixpoint contains the concrete difference, so
+Paper Proposition 1: any pre-fixpoint contains the concrete difference, so
 `lfpDTr env ≤ TraceDifferenceToSet env`.
 -/
 theorem traceDiff_is_prefixpoint (env : Env Action Name) :
@@ -108,7 +108,7 @@ theorem traceDiff_is_prefixpoint (env : Env Action Name) :
           exact hDiff'.2 ⟨_, ⟨q, hQq, hDerQ⟩, hTailQ⟩
 
 /--
-Part 1 of the proof of Proposition 2.7: the concrete trace difference is contained
+Part 1 of the proof of paper Proposition 1: the concrete trace difference is contained
 in every pre-fixpoint of `DTr env`, hence in `lfpDTr env`.
 
 The proof uses `TraceSem.rec` with a motive that universally quantifies over `Q`,
@@ -142,7 +142,7 @@ theorem traceDiff_le_lfp (env : Env Action Name) :
     exact ⟨p'', hDer, ih (DerivSetOf env Q a) hNegNext ρ hρ⟩
 
 /--
-**Proposition 2.7**: The concrete trace difference equals the least fixpoint of `DTr`.
+**Paper Proposition 1**: The concrete trace difference equals the least fixpoint of `DTr`.
 
 For all `p : CCS` and `Q : ProcSet` and `tr : Trace`:
 ```
@@ -169,7 +169,7 @@ theorem traceDifferenceToSet_eq_lfpDTr
     exact hlfp _ (traceDiff_is_prefixpoint env)
 
 /--
-Corollary: trace preorder reduces to a fixpoint-emptiness check (Proposition 2.7).
+Corollary: trace preorder reduces to a fixpoint-emptiness check (paper Proposition 1).
 ```
   TracePreorder env p q  ↔  ¬ ∃ tr, lfpDTr env p (· = q) tr
 ```
