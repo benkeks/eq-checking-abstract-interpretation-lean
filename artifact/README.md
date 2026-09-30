@@ -31,8 +31,7 @@ docker run --rm eq-checking-abstract-interpretation-lean lake build
 If you want to perform a full clean build (which might take about 5–20 minutes for a Mathlib rebuild), run:
 
 ```bash
-docker run --rm eq-checking-abstract-interpretation-lean bash -c 'lake clean && 
-lake build'
+docker run --rm eq-checking-abstract-interpretation-lean bash -c 'lake clean && lake build'
 ```
 
 Each fact in the paper comes with a link to the respective fact in the formalization. Both usually align closely, with the Lean definitions allowing additional parameters that increase reusability or give explicit context.
