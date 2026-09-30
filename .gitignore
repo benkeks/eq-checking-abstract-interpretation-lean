@@ -13,3 +13,6 @@ index.*
 .lake/
 docbuild/
 *.results
+/artifact/eq-checking-abstract-interpretation-lean-image.tar.gz
+/artifact/eq-checking-abstract-interpretation-lean-image.tar
+/artifact/eq-checking-abstract-interpretation-lean.zip

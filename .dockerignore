@@ -1,0 +1,13 @@
+.git/
+.lake/
+.vscode/
+docbuild/
+site/
+*.pdf
+*.aux
+*.fdb_latexmk
+tests/*.results
+tests/*.results.*
+Dockerfile
+.dockerignore
+artifact/

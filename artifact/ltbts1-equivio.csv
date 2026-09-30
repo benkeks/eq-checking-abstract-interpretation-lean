@@ -1,0 +1,21 @@
+left,right,seconds,preorders,status
+L13,R13,0.382,simulation,ok
+R13,L13,0.401,2-nested-simulation,ok
+L16,R16,0.379,simulation,ok
+R16,L16,0.374,2-nested-simulation,ok
+L21,R21,0.411,readiness,ok
+R21,L21,0.402,readiness,ok
+L24,R24,0.393,"possible-future, ready-simulation",ok
+R24,L24,0.397,"failure-trace, impossible-future",ok
+L27,R27,0.442,possible-future,ok
+R27,L27,0.474,possible-future,ok
+L31,R31,0.411,ready-simulation,ok
+R31,L31,0.404,"ready-trace, impossible-future",ok
+L34,R31,0.386,ready-simulation,ok
+R31,L34,0.379,2-nested-simulation,ok
+L38,R24,0.402,simulation,ok
+R24,L38,0.417,"failure-trace, impossible-future",ok
+L42,R42,0.383,2-nested-simulation,ok
+R42,L42,0.408,2-nested-simulation,ok
+L50,R50,0.403,ready-simulation,ok
+R50,L50,0.399,"ready-trace, impossible-future",ok
