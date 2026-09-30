@@ -17,4 +17,3 @@ import EqCheckingAbstractInterpretation.Ready.ConcreteDifference
 import EqCheckingAbstractInterpretation.Ready.FiniteEvaluator
 import EqCheckingAbstractInterpretation.Ready.FiniteEvaluatorCorrectness
 import EqCheckingAbstractInterpretation.Ready.RunningExample
-import EqCheckingAbstractInterpretation.Ready.Denotational

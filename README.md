@@ -77,7 +77,6 @@ The formalization currently covers four layers.
 2. Concrete ready-simulation differences.
     - `Ready/ConcreteTransformer.lean` defines the concrete predecessor transformer `DRS` and its least fixpoint `lfpDRS`.
     - `Ready/ConcreteDifference.lean` defines single-process satisfaction `RSSem`, defines `RSDifferenceToSet` as the difference of those denotations, and proves `rsDifferenceToSet_eq_lfpDRS` (paper Proposition 2).
-    - `Ready/Denotational.lean` characterizes the same difference via finite certificates (`rsDifferenceDenotational_iff_rsDifferenceToSet`).
 
 3. Unified capability-threshold abstraction.
     - `Ready/Basic.lean` formalizes the capability lattice and generic threshold theorems (`..._of_alpha`, `..._of_lfp`).

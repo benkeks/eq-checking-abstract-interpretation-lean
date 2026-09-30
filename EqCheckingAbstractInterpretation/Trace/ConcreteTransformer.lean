@@ -85,7 +85,7 @@ theorem lfpDTr_prefixpoint (env : Env Action Name) :
 /--
 `TraceDifferenceToSet env` is a pre-fixpoint of `DTr env`.
 This is the key step (Part 2, "least among pre-fixpoints") in the proof of
-Paper Proposition 1: any pre-fixpoint contains the concrete difference, so
+paper Proposition 1: the least fixpoint is contained in every pre-fixpoint, so
 `lfpDTr env ≤ TraceDifferenceToSet env`.
 -/
 theorem traceDiff_is_prefixpoint (env : Env Action Name) :
